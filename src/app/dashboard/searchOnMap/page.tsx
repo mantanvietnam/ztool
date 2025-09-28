@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus } from 'react-icons/fi';
+import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
+import Link from 'next/link';
 
 // --- TYPE DEFINITIONS ---
 interface PlaceResult {
@@ -27,7 +30,7 @@ interface ZaloGroup {
 
 // --- COMPONENTS ---
 
-// --- NEW --- Hướng dẫn cá nhân hóa tin nhắn
+// Hướng dẫn cá nhân hóa tin nhắn (Giữ nguyên code gốc)
 const PersonalizationGuide = () => (
     <div className="mt-3 p-3 bg-gray-900/50 rounded-md text-sm text-gray-400 space-y-2">
         <p className="font-bold text-gray-300">💡 Hướng dẫn để không bị khóa nick Zalo:</p>
@@ -36,8 +39,7 @@ const PersonalizationGuide = () => (
     </div>
 );
 
-
-// Popup thông báo thành công chung
+// Popup thông báo thành công chung (Giữ nguyên code gốc)
 const SuccessModal = ({ title, message, onClose, onViewProgress }: { title: string; message: string; onClose: () => void; onViewProgress: () => void; }) => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
@@ -52,15 +54,18 @@ const SuccessModal = ({ title, message, onClose, onViewProgress }: { title: stri
     </div>
 );
 
-// --- UPDATED --- Popup gửi yêu cầu kết bạn
-const AddFriendModal = ({ count, onClose, onSubmit }: { count: number; onClose: () => void; onSubmit: (message: string) => void; }) => {
+// CẬP NHẬT: Popup gửi yêu cầu kết bạn
+const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('Xin chào, mình kết bạn nhé!');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const charCount = message.length;
     const isOverLimit = charCount > 120;
 
+    const calculatedCost = count * pointCost;
+    const hasEnoughPoints = currentUserPoints >= calculatedCost;
+
     const handleSubmit = async () => {
-        if (!message.trim() || isOverLimit) return;
+        if (!message.trim() || isOverLimit || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
         await onSubmit(message);
         setIsSubmitting(false);
@@ -72,31 +77,29 @@ const AddFriendModal = ({ count, onClose, onSubmit }: { count: number; onClose: 
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi yêu cầu kết bạn hàng loạt</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Bạn sẽ gửi lời mời kết bạn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
-                    <div className="relative">
-                        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập lời mời kết bạn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                        <span className={`absolute bottom-2 right-3 text-sm font-medium ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>
-                            {charCount}/120
-                        </span>
-                    </div>
-                     <PersonalizationGuide />
+                    <div className="relative"><textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập lời mời kết bạn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/><span className={`absolute bottom-2 right-3 text-sm font-medium ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>{charCount}/120</span></div>
+                    {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
+                    <PersonalizationGuide />
                 </div>
-                <div className="p-4 bg-gray-900 flex justify-end">
-                    <button onClick={handleSubmit} disabled={isSubmitting || !message.trim() || isOverLimit} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiUserPlus/>} Gửi yêu cầu
-                    </button>
+                <div className="p-4 bg-gray-900 flex justify-between items-center">
+                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !message.trim() || isOverLimit || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiUserPlus/>} Gửi yêu cầu</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- NEW --- Popup gửi tin nhắn
-const SendMessageModal = ({ count, onClose, onSubmit }: { count: number; onClose: () => void; onSubmit: (message: string) => void; }) => {
+// CẬP NHẬT: Popup gửi tin nhắn
+const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const calculatedCost = count * pointCost;
+    const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
     const handleSubmit = async () => {
-        if (!message.trim()) return;
+        if (!message.trim() || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
         await onSubmit(message);
         setIsSubmitting(false);
@@ -109,26 +112,28 @@ const SendMessageModal = ({ count, onClose, onSubmit }: { count: number; onClose
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
                     <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
                     <PersonalizationGuide />
                 </div>
-                <div className="p-4 bg-gray-900 flex justify-end">
-                    <button onClick={handleSubmit} disabled={isSubmitting || !message.trim()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">
-                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu
-                    </button>
+                <div className="p-4 bg-gray-900 flex justify-between items-center">
+                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !message.trim() || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
                 </div>
             </div>
         </div>
     );
 };
 
-
-// Popup thêm vào nhóm
-const AddToGroupModal = ({ count, onClose, onSubmit }: { count: number; onClose: () => void; onSubmit: (groupId: string) => void; }) => {
+// CẬP NHẬT: Popup thêm vào nhóm
+const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (groupId: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const { selectedAccount } = useZaloAccounts();
     const [groups, setGroups] = useState<ZaloGroup[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const calculatedCost = count * pointCost;
+    const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
     useEffect(() => {
         const fetchGroups = async () => {
@@ -136,11 +141,7 @@ const AddToGroupModal = ({ count, onClose, onSubmit }: { count: number; onClose:
             setIsLoading(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent }),
-                });
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cookie, imei, userAgent }), });
                 const data = await response.json();
                 if (data.success) setGroups(data.groups || []);
             } catch (error) { console.error("Lỗi khi tải danh sách nhóm:", error); } 
@@ -150,7 +151,7 @@ const AddToGroupModal = ({ count, onClose, onSubmit }: { count: number; onClose:
     }, [selectedAccount]);
 
     const handleSubmit = async () => {
-        if (!selectedGroupId) return;
+        if (!selectedGroupId || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
         await onSubmit(selectedGroupId);
         setIsSubmitting(false);
@@ -166,11 +167,11 @@ const AddToGroupModal = ({ count, onClose, onSubmit }: { count: number; onClose:
                         <option value="">{isLoading ? 'Đang tải nhóm...' : '-- Chọn một nhóm --'}</option>
                         {groups.map(group => <option key={group.id} value={group.id}>{group.name} ({group.totalMembers} TV)</option>)}
                     </select>
+                    {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
                 </div>
-                <div className="p-4 bg-gray-900 flex justify-end">
-                    <button onClick={handleSubmit} disabled={isSubmitting || !selectedGroupId} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">
-                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Gửi yêu cầu
-                    </button>
+                <div className="p-4 bg-gray-900 flex justify-between items-center">
+                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !selectedGroupId || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Gửi yêu cầu</button>
                 </div>
             </div>
         </div>
@@ -181,6 +182,8 @@ const AddToGroupModal = ({ count, onClose, onSubmit }: { count: number; onClose:
 // --- MAIN PAGE COMPONENT ---
 export default function SearchOnMapPage() {
     const { selectedAccount } = useZaloAccounts();
+    const { pointCosts, isLoading: isLoadingSettings } = useSettings();
+    const { user, updateUserPoints } = useAuth();
     const router = useRouter();
     const addressInputRef = useRef<HTMLInputElement>(null);
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
@@ -197,164 +200,60 @@ export default function SearchOnMapPage() {
     const [modalState, setModalState] = useState<'none' | 'sendMessage' | 'addFriend' | 'addToGroup'>('none');
     const [successInfo, setSuccessInfo] = useState<{ title: string; message: string; redirectUrl: string } | null>(null);
     
-    // Load Google Maps Script
-    useEffect(() => {
-        // Thay key bằng biến môi trường để bảo mật
-        const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-        if (!GOOGLE_MAPS_API_KEY) {
-            console.error("Google Maps API Key is missing!");
-            setError("Lỗi cấu hình: Không tìm thấy Google Maps API Key.");
-            return;
-        }
+    // Logic useEffects để tải script và Autocomplete (Giữ nguyên code gốc của bạn)
+    useEffect(() => { const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; if (!GOOGLE_MAPS_API_KEY) { console.error("Google Maps API Key is missing!"); setError("Lỗi cấu hình: Không tìm thấy Google Maps API Key."); return; } if ((window as any).google) { setIsScriptLoaded(true); return; } const script = document.createElement('script'); script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initMap`; script.async = true; script.defer = true; (window as any).initMap = () => setIsScriptLoaded(true); document.head.appendChild(script); }, []);
+    useEffect(() => { if (isScriptLoaded && addressInputRef.current && (window as any).google) { const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, { types: ['address'], componentRestrictions: { 'country': 'vn' } }); autocomplete.addListener('place_changed', () => { const place = autocomplete.getPlace(); if (place.geometry?.location) { setCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }); setAddress(addressInputRef.current?.value || ''); } }); } }, [isScriptLoaded]);
+    const handleGetGPS = useCallback(async () => { if (!navigator.geolocation) { setError("Trình duyệt không hỗ trợ định vị."); return; } try { const permission = await navigator.permissions.query({ name: 'geolocation' }); if (permission.state === 'granted' || permission.state === 'prompt') { if (addressInputRef.current) addressInputRef.current.value = 'Đang lấy vị trí...'; navigator.geolocation.getCurrentPosition( (position) => { setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); if (addressInputRef.current) { addressInputRef.current.value = `📍 Vị trí GPS của bạn`; setAddress('Vị trí GPS của bạn'); } }, () => setError("Không thể lấy vị trí GPS.") ); } else if (permission.state === 'denied') { setError("Bạn đã chặn quyền truy cập vị trí. Vui lòng cho phép trong cài đặt trình duyệt."); } } catch (err) { console.error("Lỗi khi yêu cầu quyền GPS:", err); setError("Có lỗi xảy ra khi yêu cầu quyền vị trí."); } }, []);
+    
+    // Logic handleSearch (Giữ nguyên code gốc của bạn)
+    const handleSearch = async () => { if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } setLoading(true); setError(null); setResults([]); try { const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, radius, lat: coords?.lat, lng: coords?.lng, address: coords ? undefined : address }), }); const data = await response.json(); if (!response.ok || !data.success) { throw new Error(data.message || 'Có lỗi xảy ra từ server.'); } setResults(data.results || []); } catch (err: any) { setError(err.message); } finally { setLoading(false); } };
 
-        if ((window as any).google) {
-            setIsScriptLoaded(true);
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initMap`;
-        script.async = true;
-        script.defer = true;
-        (window as any).initMap = () => setIsScriptLoaded(true);
-        document.head.appendChild(script);
-    }, []);
-
-    // Init Autocomplete
-    useEffect(() => {
-        if (isScriptLoaded && addressInputRef.current && (window as any).google) {
-            const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
-                types: ['address'],
-                componentRestrictions: { 'country': 'vn' }
-            });
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                if (place.geometry?.location) {
-                    setCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
-                    setAddress(addressInputRef.current?.value || '');
-                }
-            });
-        }
-    }, [isScriptLoaded]);
-
-    const handleGetGPS = useCallback(async () => {
-        if (!navigator.geolocation) {
-            setError("Trình duyệt không hỗ trợ định vị.");
-            return;
-        }
-        try {
-            const permission = await navigator.permissions.query({ name: 'geolocation' });
-            if (permission.state === 'granted' || permission.state === 'prompt') {
-                if (addressInputRef.current) addressInputRef.current.value = 'Đang lấy vị trí...';
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-                        if (addressInputRef.current) {
-                            addressInputRef.current.value = `📍 Vị trí GPS của bạn`;
-                            setAddress('Vị trí GPS của bạn');
-                        }
-                    },
-                    () => setError("Không thể lấy vị trí GPS.")
-                );
-            } else if (permission.state === 'denied') {
-                setError("Bạn đã chặn quyền truy cập vị trí. Vui lòng cho phép trong cài đặt trình duyệt.");
-            }
-        } catch (err) {
-            console.error("Lỗi khi yêu cầu quyền GPS:", err);
-            setError("Có lỗi xảy ra khi yêu cầu quyền vị trí.");
-        }
-    }, []);
-
-    const handleSearch = async () => {
-        if (!keyword) {
-            setError("Vui lòng nhập từ khóa tìm kiếm.");
-            return;
-        }
-        if (!address && !coords) {
-            setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS.");
-            return;
-        }
-        setLoading(true);
-        setError(null);
-        setResults([]);
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    keyword,
-                    radius,
-                    lat: coords?.lat,
-                    lng: coords?.lng,
-                    address: coords ? undefined : address
-                }),
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Có lỗi xảy ra từ server.');
-            }
-            setResults(data.results || []);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // CẬP NHẬT: Hàm Xuất Excel để kiểm tra và trừ điểm
     const handleExport = () => {
+        if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
+        const cost = pointCosts.export_data_map || 0;
+        if (user.point < cost) {
+            alert(`Không đủ điểm để xuất dữ liệu. Cần ${cost}, bạn đang có ${user.point}.`);
+            return;
+        }
+
         const phoneNumbers = results.map(r => r.international_phone_number).filter(Boolean);
         if (phoneNumbers.length === 0) {
             alert("Không có số điện thoại nào trong danh sách để xuất.");
             return;
         }
-        const dataForExcel = results.map(place => ({
-            "Tên Địa Điểm": place.name,
-            "Địa Chỉ": place.formatted_address,
-            "Số Điện Thoại": place.international_phone_number,
-            "Website": place.website,
-            "Đánh Giá": place.rating,
-            "Link Google Maps": place.url
-        }));
+        
+        const dataForExcel = results.map(place => ({ "Tên Địa Điểm": place.name, "Địa Chỉ": place.formatted_address, "Số Điện Thoại": place.international_phone_number, "Website": place.website, "Đánh Giá": place.rating, "Link Google Maps": place.url }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Địa Điểm");
         XLSX.writeFile(workbook, "Danh_Sach_Dia_Diem.xlsx");
-    };
-
-    const createRequest = async (endpoint: string, payload: object) => {
-        const token = localStorage.getItem('authToken');
-        if (!token) throw new Error("Không tìm thấy token xác thực.");
         
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, token }),
-        });
-        const data = await response.json();
-        if (!response.ok || data.code !== 0) {
-            if(data.code === 3) router.push('/logout');
-            throw new Error(data.message || "Tạo yêu cầu thất bại.");
-        }
+        updateUserPoints(user.point - cost);
+        alert(`Xuất file thành công! Đã trừ ${cost} điểm.`);
     };
 
+    // Hàm createRequest gốc của bạn
+    const createRequest = async (endpoint: string, payload: object) => { const token = localStorage.getItem('authToken'); if (!token) throw new Error("Không tìm thấy token xác thực."); const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, token }), }); const data = await response.json(); if (!response.ok || data.code !== 0) { if(data.code === 3) router.push('/logout'); throw new Error(data.message || "Tạo yêu cầu thất bại."); } };
+    
+    // CẬP NHẬT: Hàm handleSubmitAction để tính và trừ điểm
     const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup') => {
-        if (!selectedAccount) {
-            setError("Vui lòng chọn tài khoản Zalo để thực hiện.");
-            return;
-        }
-        const phoneNumbers = results.map(r => r.international_phone_number?.replace(/\s/g, '')).filter(Boolean) as string[];
-        if (phoneNumbers.length === 0) {
-            setError("Không có số điện thoại nào để thực hiện hành động.");
-            return;
-        }
+        if (!selectedAccount) { setError("Vui lòng chọn tài khoản Zalo để thực hiện."); return; }
+        if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         
-        // --- UPDATED --- Tạo danh sách request có kèm tên địa điểm để cá nhân hóa
-        const listRequest = results
-            .filter(r => r.international_phone_number)
-            .map(r => ({
-                phone: r.international_phone_number!.replace(/\s/g, ''),
-                name: r.name // `name` sẽ được dùng để thay thế biến `[ten_dia_diem]` ở backend
-            }));
+        const phoneNumbers = results.map(r => r.international_phone_number?.replace(/\s/g, '')).filter(Boolean) as string[];
+        if (phoneNumbers.length === 0) { setError("Không có số điện thoại nào để thực hiện hành động."); return; }
+        
+        let costPerAction = 0;
+        switch (actionType) {
+            case 'message': costPerAction = pointCosts.send_mess_stranger || 0; break;
+            case 'addFriend': costPerAction = pointCosts.add_friend || 0; break;
+            case 'addToGroup': costPerAction = pointCosts.add_member_group || 0; break;
+        }
+        const totalCost = phoneNumbers.length * costPerAction;
 
+        const listRequest = results.filter(r => r.international_phone_number).map(r => ({ phone: r.international_phone_number!.replace(/\s/g, ''), name: r.name }));
+        
         setModalState('none');
         try {
             if (actionType === 'message') {
@@ -364,64 +263,46 @@ export default function SearchOnMapPage() {
                 await createRequest('createRequestAddFriendAPI', { userId: selectedAccount.profile.userId, message: messageOrGroupId, list_request: listRequest, type: 'phone' });
                 setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu kết bạn đến <b>${listRequest.length}</b> SĐT.`, redirectUrl: '/dashboard/listRequestAddFriend' });
             } else if (actionType === 'addToGroup') {
-                 // addToGroup không cần cá nhân hóa message nên vẫn dùng list phone cũ
                 await createRequest('addMemberToGroupAPI', { userId: selectedAccount.profile.userId, groupId: messageOrGroupId, phones: phoneNumbers });
                 setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu thêm <b>${phoneNumbers.length}</b> SĐT vào nhóm.`, redirectUrl: '/dashboard/listRequestAddMemberGroup' });
             }
+            // Trừ điểm sau khi tạo yêu cầu thành công
+            updateUserPoints(user.point - totalCost);
         } catch (err: any) {
             setError(err.message);
         }
     };
 
     const phoneCount = useMemo(() => results.map(r => r.international_phone_number).filter(Boolean).length, [results]);
+    
+    // Biến để kiểm tra điểm cho nút Xuất Excel
+    const exportCost = pointCosts?.export_data_map ?? 0;
+    const canExport = user && user.point >= exportCost;
 
     return (
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {/* --- UPDATED --- Gọi các modal mới */}
-            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'message')} />}
-            {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} />}
-            {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} />}
+            {/* CẬP NHẬT: Truyền props điểm vào các Modal */}
+            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'message')} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
+            {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
+            {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
             <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Google Maps</h1>
-
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Từ khóa tìm kiếm</label>
-                        <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="VD: spa, nhà hàng chay, salon tóc..." className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Bán kính</label>
-                        <select value={radius} onChange={e => setRadius(e.target.value)} className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="1000">1 km</option>
-                            <option value="3000">3 km</option>
-                            <option value="5000">5 km</option>
-                            <option value="10000">10 km</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Địa chỉ hoặc vị trí</label>
-                    <div className="flex gap-2">
-                        <input ref={addressInputRef} onChange={e => setAddress(e.target.value)} type="text" placeholder="Nhập địa chỉ hoặc dùng GPS" className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                        <button onClick={handleGetGPS} title="Lấy vị trí GPS hiện tại" className="bg-gray-600 hover:bg-gray-500 p-3 rounded-md"><FiCrosshair size={20}/></button>
-                    </div>
-                </div>
-                <button onClick={handleSearch} disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md disabled:opacity-50">
-                    {loading ? <><FiLoader className="animate-spin"/> Đang tìm kiếm...</> : <><FiSearch/> Tìm kiếm</>}
-                </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-gray-300 mb-2">Từ khóa tìm kiếm</label><input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="VD: spa, nhà hàng chay, salon tóc..." className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div><div><label className="block text-sm font-medium text-gray-300 mb-2">Bán kính</label><select value={radius} onChange={e => setRadius(e.target.value)} className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="1000">1 km</option><option value="3000">3 km</option><option value="5000">5 km</option><option value="10000">10 km</option></select></div></div>
+                <div><label className="block text-sm font-medium text-gray-300 mb-2">Địa chỉ hoặc vị trí</label><div className="flex gap-2"><input ref={addressInputRef} onChange={e => setAddress(e.target.value)} type="text" placeholder="Nhập địa chỉ hoặc dùng GPS" className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={handleGetGPS} title="Lấy vị trí GPS hiện tại" className="bg-gray-600 hover:bg-gray-500 p-3 rounded-md"><FiCrosshair size={20}/></button></div></div>
+                <button onClick={handleSearch} disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md disabled:opacity-50">{loading ? <><FiLoader className="animate-spin"/> Đang tìm kiếm...</> : <><FiSearch/> Tìm kiếm</>}</button>
             </div>
 
             {error && <div className="bg-red-500/20 text-red-300 p-4 rounded-md mb-6 text-center">{error}</div>}
-
+            
             {results.length > 0 && (
                 <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
                         <h2 className="text-xl font-bold">Tìm thấy {results.length} kết quả ({phoneCount} SĐT)</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full md:w-auto">
-                            <button onClick={handleExport} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-sm py-2 px-3 rounded-md"><FiDownload/> Xuất Excel</button>
+                            <button onClick={handleExport} disabled={!canExport || isLoadingSettings} title={!canExport ? `Không đủ điểm. Cần ${exportCost}` : ""} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-sm py-2 px-3 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"><FiDownload/> Xuất Excel</button>
                             <button onClick={() => setModalState('addFriend')} className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-sm py-2 px-3 rounded-md"><FiUserPlus/> Kết bạn</button>
                             <button onClick={() => setModalState('sendMessage')} className="flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-sm py-2 px-3 rounded-md"><FiMessageSquare/> Nhắn tin</button>
                             <button onClick={() => setModalState('addToGroup')} className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-sm py-2 px-3 rounded-md"><FiUsers/> Thêm nhóm</button>

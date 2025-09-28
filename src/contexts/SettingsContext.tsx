@@ -11,6 +11,7 @@ interface PointCosts {
     add_friend: number;
     add_member_group: number;
     delete_friend: number;
+    export_data_map: number;
     [key: string]: number; // Cho phép các key khác trong tương lai
 }
 
