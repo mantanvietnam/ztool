@@ -201,7 +201,31 @@ export default function SearchOnMapPage() {
     const [successInfo, setSuccessInfo] = useState<{ title: string; message: string; redirectUrl: string } | null>(null);
     
     // Logic useEffects để tải script và Autocomplete (Giữ nguyên code gốc của bạn)
-    useEffect(() => { const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; if (!GOOGLE_MAPS_API_KEY) { console.error("Google Maps API Key is missing!"); setError("Lỗi cấu hình: Không tìm thấy Google Maps API Key."); return; } if ((window as any).google) { setIsScriptLoaded(true); return; } const script = document.createElement('script'); script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initMap`; script.async = true; script.defer = true; (window as any).initMap = () => setIsScriptLoaded(true); document.head.appendChild(script); }, []);
+    useEffect(() => {
+    const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_MAPS_API_KEY) {
+        console.error("Google Maps API Key is missing!");
+        setError("Lỗi cấu hình: Không tìm thấy Google Maps API Key.");
+        return;
+    }
+
+    if ((window as any).google) {
+        setIsScriptLoaded(true);
+        return;
+    }
+
+    if (!document.querySelector(`script[src*="maps.googleapis.com/maps/api/js"]`)) {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => setIsScriptLoaded(true);
+        document.head.appendChild(script);
+    } else {
+        setIsScriptLoaded(true);
+    }
+    }, []);
+
     useEffect(() => { if (isScriptLoaded && addressInputRef.current && (window as any).google) { const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, { types: ['address'], componentRestrictions: { 'country': 'vn' } }); autocomplete.addListener('place_changed', () => { const place = autocomplete.getPlace(); if (place.geometry?.location) { setCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }); setAddress(addressInputRef.current?.value || ''); } }); } }, [isScriptLoaded]);
     const handleGetGPS = useCallback(async () => { if (!navigator.geolocation) { setError("Trình duyệt không hỗ trợ định vị."); return; } try { const permission = await navigator.permissions.query({ name: 'geolocation' }); if (permission.state === 'granted' || permission.state === 'prompt') { if (addressInputRef.current) addressInputRef.current.value = 'Đang lấy vị trí...'; navigator.geolocation.getCurrentPosition( (position) => { setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); if (addressInputRef.current) { addressInputRef.current.value = `📍 Vị trí GPS của bạn`; setAddress('Vị trí GPS của bạn'); } }, () => setError("Không thể lấy vị trí GPS.") ); } else if (permission.state === 'denied') { setError("Bạn đã chặn quyền truy cập vị trí. Vui lòng cho phép trong cài đặt trình duyệt."); } } catch (err) { console.error("Lỗi khi yêu cầu quyền GPS:", err); setError("Có lỗi xảy ra khi yêu cầu quyền vị trí."); } }, []);
     

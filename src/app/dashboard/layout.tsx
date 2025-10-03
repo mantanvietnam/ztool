@@ -113,7 +113,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <div className="flex h-screen bg-gray-900 text-gray-100">
             <ZaloSessionGuard />
             <aside className="hidden md:flex flex-col w-64 bg-gray-800 p-4 space-y-4">
-                <div className="text-2xl font-bold text-white text-center py-4">ZTOOL</div>
+                <Link 
+                    href="/dashboard" 
+                    className="text-2xl font-bold text-white text-center py-4"
+                    >
+                    ZTOOL
+                </Link>
                 <nav className="flex-grow space-y-2">
                     <SidebarLink icon={<FiUserPlus size={20} />} text="Kết bạn tự động" href="/dashboard/listRequestAddFriend" active={pathname === '/dashboard/listRequestAddFriend'} />
                     <SidebarLink icon={<FiSend size={20} />} text="Yêu cầu kết bạn" href="/dashboard/listWaitingFriendApproval" active={pathname === '/dashboard/listWaitingFriendApproval'} />
@@ -125,13 +130,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 
                 <div>
                 <SidebarDropdown
-  icon={<FiSettings size={20} />}
-  text="Cài Đặt"
-  items={[
-    { label: "Thông tin tài khoản", href: "/dashboard/settings" },
-    { label: "Đổi mật khẩu", href: "/dashboard/settings/password" },
-  ]}
-/>
+                    icon={<FiSettings size={20} />}
+                    text="Cài Đặt"
+                    items={[
+                        { label: "Thông tin tài khoản", href: "/dashboard/settings" },
+                        { label: "Đổi mật khẩu", href: "/dashboard/settings/password" },
+                    ]}
+                    />
                     <button
                         onClick={logout}
                         className="flex items-center w-full p-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-700 hover:text-white"

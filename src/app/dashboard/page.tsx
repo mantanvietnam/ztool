@@ -25,7 +25,7 @@ export default function DashboardHomePage() {
         <div className="flex-1 p-6 md:p-8">
             <h1 className="text-3xl font-bold mb-6">Tổng Quan</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard icon={<FiUsers size={24} />} title="Tổng Khách Hàng" value="1,250" change="+15% so với tháng trước" />
+                <StatCard icon={<FiUsers size={24} />} title="Số lượng bạn bè" value="1,250" change="+15% so với tháng trước" />
                 <StatCard icon={<FiSend size={24} />} title="Email Đã Gửi" value="25,600" change="+5.2% so với tuần trước" />
                 <StatCard icon={<FiBarChart2 size={24} />} title="Tỷ Lệ Mở" value="24.5%" change="-1.1% so với chiến dịch trước" />
             </div>
