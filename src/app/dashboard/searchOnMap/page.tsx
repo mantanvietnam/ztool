@@ -5,9 +5,11 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle } from 'react-icons/fi';
+import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
+// ✨ THÊM MỚI: Import axios để gửi FormData
+import axios from 'axios';
 
 // --- TYPE DEFINITIONS ---
 interface PlaceResult {
@@ -54,7 +56,7 @@ const SuccessModal = ({ title, message, onClose, onViewProgress }: { title: stri
     </div>
 );
 
-// CẬP NHẬT: Popup gửi yêu cầu kết bạn
+// Popup gửi yêu cầu kết bạn (Giữ nguyên code gốc)
 const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('Xin chào, mình kết bạn nhé!');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,18 +92,73 @@ const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints
     );
 };
 
-// CẬP NHẬT: Popup gửi tin nhắn
-const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string) => void; pointCost: number; currentUserPoints: number; }) => {
+// ✨ CẬP NHẬT: Popup gửi tin nhắn (CÓ HỖ TRỢ FILE)
+const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[]) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // ✨ THÊM MỚI: State quản lý file
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileError, setFileError] = useState('');
+
+    // ✨ CONSTANT GIỚI HẠN FILE
+    const MAX_FILES = 10;
+    const MAX_SIZE_MB = 2;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    // ✨ THÊM MỚI: Hàm xử lý chọn file
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            const validFiles: File[] = [];
+            let validationError = '';
+
+            if (selectedFiles.length + filesArray.length > MAX_FILES) {
+                setFileError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
+                e.target.value = '';
+                return;
+            }
+
+            filesArray.forEach(file => {
+                if (!file.type.startsWith('image/')) {
+                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
+                    return;
+                }
+                if (file.size > MAX_SIZE_BYTES) {
+                    validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`;
+                    return;
+                }
+                validFiles.push(file);
+            });
+
+            if (validationError) {
+                setFileError(validationError);
+            } else {
+                setFileError('');
+            }
+
+            if (validFiles.length > 0) {
+                setSelectedFiles(prev => [...prev, ...validFiles]);
+            }
+            e.target.value = '';
+        }
+    };
+
+    // ✨ THÊM MỚI: Hàm xóa file
+    const handleRemoveFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+        setFileError('');
+    };
+
     const handleSubmit = async () => {
-        if (!message.trim() || isSubmitting || !hasEnoughPoints) return;
+        // ✨ Cho phép gửi nếu có tin nhắn HOẶC có file
+        if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
-        await onSubmit(message);
+        // ✨ Truyền file vào hàm onSubmit
+        await onSubmit(message, selectedFiles);
         setIsSubmitting(false);
     };
 
@@ -111,20 +168,47 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn hàng loạt</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
-                    <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    
+                    {/* ✨ THÊM MỚI: Khu vực chọn file đính kèm */}
+                    <div className="mt-2">
+                        <input type="file" multiple accept="image/*" id="file-upload-map" className="hidden" onChange={handleFileChange} />
+                        <label htmlFor="file-upload-map" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
+                            <FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})
+                        </label>
+
+                        {selectedFiles.length > 0 && (
+                            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                {selectedFiles.map((file, index) => (
+                                    <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
+                                        <span className="text-gray-300 truncate max-w-[80%]">
+                                            {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
+                                        </span>
+                                        <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
+                                            <FiTrash2 />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {fileError && <p className="text-sm text-red-400 mt-1 font-semibold">{fileError}</p>}
+                        <p className="text-xs text-gray-500 mt-1 italic">* Chỉ chấp nhận file ảnh, tối đa {MAX_SIZE_MB}MB/file, tối đa {MAX_FILES} file.</p>
+                    </div>
+
                     {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
                     <PersonalizationGuide />
                 </div>
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <button onClick={handleSubmit} disabled={isSubmitting || !message.trim() || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
+                    {/* Disable nếu: (không tin nhắn VÀ không file) HOẶC đang gửi HOẶC không đủ điểm */}
+                    <button onClick={handleSubmit} disabled={isSubmitting || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// CẬP NHẬT: Popup thêm vào nhóm
+// Popup thêm vào nhóm (Giữ nguyên code gốc)
 const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (groupId: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const { selectedAccount } = useZaloAccounts();
     const [groups, setGroups] = useState<ZaloGroup[]>([]);
@@ -232,36 +316,27 @@ export default function SearchOnMapPage() {
     // Logic handleSearch (Giữ nguyên code gốc của bạn)
     const handleSearch = async () => { if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } setLoading(true); setError(null); setResults([]); try { const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, radius, lat: coords?.lat, lng: coords?.lng, address: coords ? undefined : address }), }); const data = await response.json(); if (!response.ok || !data.success) { throw new Error(data.message || 'Có lỗi xảy ra từ server.'); } setResults(data.results || []); } catch (err: any) { setError(err.message); } finally { setLoading(false); } };
 
-    // CẬP NHẬT: Hàm Xuất Excel để kiểm tra và trừ điểm
+    // Hàm Xuất Excel (Giữ nguyên code gốc của bạn)
     const handleExport = () => {
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         const cost = pointCosts.export_data_map || 0;
-        if (user.point < cost) {
-            alert(`Không đủ điểm để xuất dữ liệu. Cần ${cost}, bạn đang có ${user.point}.`);
-            return;
-        }
-
+        if (user.point < cost) { alert(`Không đủ điểm để xuất dữ liệu. Cần ${cost}, bạn đang có ${user.point}.`); return; }
         const phoneNumbers = results.map(r => r.international_phone_number).filter(Boolean);
-        if (phoneNumbers.length === 0) {
-            alert("Không có số điện thoại nào trong danh sách để xuất.");
-            return;
-        }
-        
+        if (phoneNumbers.length === 0) { alert("Không có số điện thoại nào trong danh sách để xuất."); return; }
         const dataForExcel = results.map(place => ({ "Tên Địa Điểm": place.name, "Địa Chỉ": place.formatted_address, "Số Điện Thoại": place.international_phone_number, "Website": place.website, "Đánh Giá": place.rating, "Link Google Maps": place.url }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Địa Điểm");
         XLSX.writeFile(workbook, "Danh_Sach_Dia_Diem.xlsx");
-        
         updateUserPoints(user.point - cost);
         alert(`Xuất file thành công! Đã trừ ${cost} điểm.`);
     };
 
-    // Hàm createRequest gốc của bạn
+    // Hàm createRequest cơ bản cho các hành động JSON (Giữ nguyên)
     const createRequest = async (endpoint: string, payload: object) => { const token = localStorage.getItem('authToken'); if (!token) throw new Error("Không tìm thấy token xác thực."); const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, token }), }); const data = await response.json(); if (!response.ok || data.code !== 0) { if(data.code === 3) router.push('/logout'); throw new Error(data.message || "Tạo yêu cầu thất bại."); } };
     
-    // CẬP NHẬT: Hàm handleSubmitAction để tính và trừ điểm
-    const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup') => {
+    // ✨ CẬP NHẬT: Hàm xử lý hành động (Hỗ trợ gửi File cho tin nhắn)
+    const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup', files: File[] = []) => {
         if (!selectedAccount) { setError("Vui lòng chọn tài khoản Zalo để thực hiện."); return; }
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         
@@ -281,7 +356,28 @@ export default function SearchOnMapPage() {
         setModalState('none');
         try {
             if (actionType === 'message') {
-                await createRequest('createRequestSendMessageAPI', { userId: selectedAccount.profile.userId, message: messageOrGroupId, list_request: listRequest, type: 'stranger' });
+                // ✨ XỬ LÝ GỬI TIN NHẮN (CÓ THỂ KÈM FILE) BẰNG AXIOS + FORMDATA
+                const token = localStorage.getItem('authToken');
+                if (!token) throw new Error("Không tìm thấy token.");
+
+                const formData = new FormData();
+                formData.append('token', token);
+                formData.append('userId', selectedAccount.profile.userId);
+                formData.append('message', messageOrGroupId);
+                formData.append('type', 'stranger');
+                formData.append('list_request', JSON.stringify(listRequest));
+
+                if (files && files.length > 0) {
+                    files.forEach(file => formData.append('files[]', file));
+                }
+
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/createRequestSendMessageAPI`, 
+                    formData, 
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+                const data = response.data;
+                if (data.code !== 0) { if(data.code === 3) router.push('/logout'); throw new Error(data.mess || "Tạo yêu cầu thất bại."); }
+
                 setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu gửi tin đến <b>${listRequest.length}</b> SĐT.`, redirectUrl: '/dashboard/listSendMessageStranger' });
             } else if (actionType === 'addFriend') {
                 await createRequest('createRequestAddFriendAPI', { userId: selectedAccount.profile.userId, message: messageOrGroupId, list_request: listRequest, type: 'phone' });
@@ -307,8 +403,8 @@ export default function SearchOnMapPage() {
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {/* CẬP NHẬT: Truyền props điểm vào các Modal */}
-            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'message')} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
+            {/* CẬP NHẬT: Truyền đúng tham số cho SendMessageModal */}
+            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files) => handleSubmitAction(msg, 'message', files)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
