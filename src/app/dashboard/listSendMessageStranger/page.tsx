@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard } from 'react-icons/fi';
+import { FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 
 // --- CÁC COMPONENT CON ---
@@ -47,21 +47,27 @@ const InsufficientPointsModal = ({ onClose, requiredPoints, currentPoints }: { o
     );
 };
 
-// KHÔI PHỤC LẠI COMPONENT GỐC BỊ THIẾU
 const JobStatsModal = ({ job, onClose }: { job: SendMessageJob, onClose: () => void }) => { 
     return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}><div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}><div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white flex items-center gap-2"><FiBarChart2 /> Thống kê chi tiết</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div><div className="p-6 space-y-4 overflow-y-auto"><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div><div><h4 className="font-semibold text-white mb-2">Nội dung tin nhắn</h4><textarea readOnly value={job.message} rows={4} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-white mt-4 mb-2">Chờ xử lý ({job.list_process.length})</h4><textarea readOnly value={job.list_process.join('\n')} rows={5} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-green-400 mb-2">Gửi thành công ({job.list_done.length})</h4><textarea readOnly value={job.list_done.join('\n')} rows={5} className="w-full bg-gray-900 text-green-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-red-400 mb-2">Gửi lỗi ({job.list_error.length})</h4><textarea readOnly value={job.list_error.join('\n')} rows={5} className="w-full bg-gray-900 text-red-400 text-sm p-2 rounded-md border border-gray-600"/></div></div><div className="p-4 bg-gray-900 flex justify-end"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md">Đóng</button></div></div></div> ); 
 };
 
-// KHÔI PHỤC LẠI COMPONENT GỐC BỊ THIẾU
 const SuccessNotification = ({ message, onClose }: { message: string; onClose: () => void; }) => { 
     useEffect(() => { const timer = setTimeout(() => { onClose(); }, 3000); return () => clearTimeout(timer); }, [onClose]); 
     return ( <div className="fixed top-5 right-5 bg-gray-800 border border-green-500 text-white rounded-lg shadow-lg p-4 flex items-center gap-4 z-50 animate-fade-in-down"><FiCheckCircle className="text-green-500" size={24} /><p className="text-sm">{message}</p><button onClick={onClose} className="ml-4 text-gray-400 hover:text-white"><FiX /></button></div> ); 
 };
 
+interface CreateMessageModalProps {
+    onClose: () => void;
+    onSubmit: (message: string, phones: string[], files: File[]) => Promise<void>;
+    pointCost: number;
+    currentUserPoints: number;
+}
+
 // Popup tạo yêu cầu gửi tin (phiên bản nâng cấp)
-const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPoints }: { onClose: () => void; onSubmit: (message: string, phones: string[]) => Promise<void>; pointCost: number; currentUserPoints: number; }) => {
+const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPoints }: CreateMessageModalProps) => {
     const [message, setMessage] = useState('');
     const [phoneList, setPhoneList] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [phoneCount, setPhoneCount] = useState(0);
@@ -69,6 +75,11 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
     const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
 
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
+
+    // ✨ CONSTANT GIỚI HẠN FILE
+    const MAX_FILES = 10;
+    const MAX_SIZE_MB = 2;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
     useEffect(() => {
         const cleanedPhones = phoneList.split('\n').map(phone => phone.replace(/[\s.,]/g, '')).filter(phone => phone.length > 0);
@@ -78,11 +89,64 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
         setError('');
     }, [phoneList, pointCost]);
 
+    // ✨ CẬP NHẬT: Logic validate file
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            const validFiles: File[] = [];
+            let validationError = '';
+
+            // 1. Kiểm tra tổng số lượng file (cũ + mới)
+            if (selectedFiles.length + filesArray.length > MAX_FILES) {
+                setError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
+                // Reset input để người dùng có thể chọn lại
+                e.target.value = '';
+                return;
+            }
+
+            filesArray.forEach(file => {
+                // 2. Kiểm tra định dạng (chỉ chấp nhận ảnh)
+                if (!file.type.startsWith('image/')) {
+                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
+                    return;
+                }
+
+                // 3. Kiểm tra dung lượng (Max 2MB)
+                if (file.size > MAX_SIZE_BYTES) {
+                    validationError = `File "${file.name}" quá lớn (${(file.size / 1024 / 1024).toFixed(2)}MB). Tối đa ${MAX_SIZE_MB}MB.`;
+                    return;
+                }
+
+                validFiles.push(file);
+            });
+
+            if (validationError) {
+                setError(validationError);
+            } else {
+                setError(''); // Xóa lỗi nếu chọn file hợp lệ
+            }
+
+            // Chỉ thêm các file hợp lệ
+            if (validFiles.length > 0) {
+                setSelectedFiles(prev => [...prev, ...validFiles]);
+            }
+
+            // Reset input để cho phép chọn lại cùng 1 file nếu lỡ xóa nhầm
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+        // Xóa lỗi khi người dùng thao tác xóa bớt file
+        setError(''); 
+    };
+
     const handleSubmit = async () => {
         if (isSubmitting) return;
 
-        if (!message.trim() || !phoneList.trim()) {
-            setError("Vui lòng nhập nội dung và danh sách SĐT.");
+        if ((!message.trim() && selectedFiles.length === 0) || !phoneList.trim()) {
+            setError("Vui lòng nhập danh sách SĐT và (nội dung hoặc file ảnh).");
             return;
         }
 
@@ -98,7 +162,7 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
             if (cleanedPhones.length === 0) {
                 throw new Error("Danh sách số điện thoại không hợp lệ.");
             }
-            await onSubmit(message, cleanedPhones);
+            await onSubmit(message, cleanedPhones, selectedFiles);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -121,15 +185,40 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
                     <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Nội dung tin nhắn</label>
-                            <textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                            <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                            
+                            <div className="mt-3">
+                                {/* ✨ CẬP NHẬT: Thêm accept="image/*" để chỉ hiện file ảnh */}
+                                <input type="file" multiple accept="image/*" id="file-upload" className="hidden" onChange={handleFileChange} />
+                                <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
+                                    <FiPaperclip /> Chọn ảnh ({selectedFiles.length}/{MAX_FILES})
+                                </label>
+                                
+                                {selectedFiles.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                        {selectedFiles.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
+                                                <span className="text-gray-300 truncate max-w-[80%]">
+                                                    {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
+                                                </span>
+                                                <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
+                                                    <FiTrash2 />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1 italic">* Chỉ chấp nhận file ảnh (jpg, png...), tối đa {MAX_SIZE_MB}MB/file, tối đa {MAX_FILES} file.</p>
+                            </div>
+                            
                             <div className="text-xs text-gray-400 bg-gray-900/50 p-3 rounded-md mt-2"><p className="font-bold mb-1">Hướng dẫn:</p><p>- Dùng <code className="bg-gray-700 px-1 rounded">{`{a|b|c}`}</code> để tạo spin nội dung.</p><p>- Dùng các biến sau: <code className="bg-gray-700 px-1 rounded">%name%</code>, <code className="bg-gray-700 px-1 rounded">%phone%</code>, <code className="bg-gray-700 px-1 rounded">%gender%</code>, <code className="bg-gray-700 px-1 rounded">%birthday%</code> để cá nhân hóa.</p></div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Danh sách số điện thoại (mỗi số 1 dòng)</label>
-                            <textarea rows={8} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="0912345678&#10;0987.654.321..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                            <textarea rows={6} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="0912345678&#10;0987.654.321..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                              <div className="text-right text-xs text-gray-400 mt-1">Số lượng: {phoneCount}</div>
                         </div>
-                        {error && <p className="text-sm text-red-400">{error}</p>}
+                        {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
                     </div>
                     <div className="p-4 bg-gray-900 flex justify-between items-center">
                         <div className="text-sm">
@@ -150,7 +239,6 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
     );
 };
 
-// KHÔI PHỤC LẠI CÁC COMPONENT GỐC BỊ THIẾU
 const StatusBadge = ({ status }: { status: SendMessageJob['status'] }) => { const statusMap = { process: { text: 'Đang chạy', className: 'bg-sky-500/20 text-sky-300' }, pause: { text: 'Tạm dừng', className: 'bg-yellow-500/20 text-yellow-300' }, done: { text: 'Hoàn thành', className: 'bg-green-500/20 text-green-300' }, cancel: { text: 'Đã hủy', className: 'bg-red-500/20 text-red-300' }, }; const { text, className } = statusMap[status] || { text: status, className: 'bg-gray-500/20 text-gray-300' }; return <span className={`px-2 py-1 text-xs font-medium rounded-full ${className}`}>{text}</span>; };
 const TypeBadge = ({ type }: { type: SendMessageJob['type'] }) => { const typeMap = { stranger: { text: 'Người lạ', className: 'bg-purple-500/20 text-purple-300' }, friend: { text: 'Bạn bè', className: 'bg-green-500/20 text-green-300' }, group: { text: 'Nhóm', className: 'bg-blue-500/20 text-blue-300' }, }; const { text, className } = typeMap[type] || { text: type, className: 'bg-gray-500/20 text-gray-300' }; return <span className={`px-2 py-1 text-xs font-medium rounded-full ${className}`}>{text}</span>; };
 const Pagination = ({ currentPage, totalPages, basePath }: { currentPage: number, totalPages: number, basePath: string }) => { if (totalPages <= 1) return null; const pages = Array.from({ length: totalPages }, (_, i) => i + 1); return ( <nav className="flex items-center justify-center gap-2 mt-8"><Link href={`${basePath}?page=${currentPage - 1}`} className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-600 bg-gray-800 cursor-not-allowed' : 'text-white bg-gray-700 hover:bg-blue-600'}`}><FiChevronLeft /></Link>{pages.map(page => <Link key={page} href={`${basePath}?page=${page}`} className={`px-4 py-2 rounded-md text-sm ${currentPage === page ? 'bg-blue-600 text-white font-bold' : 'bg-gray-700 text-white hover:bg-blue-600'}`}>{page}</Link>)}<Link href={`${basePath}?page=${currentPage + 1}`} className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-600 bg-gray-800 cursor-not-allowed' : 'text-white bg-gray-700 hover:bg-blue-600'}`}><FiChevronRight /></Link></nav> );};
@@ -183,7 +271,7 @@ export default function ListSendMessageStrangerPage() {
     useEffect(() => { const fetchPendingRequests = async () => { if (!selectedAccount) { setStats(prev => ({ ...prev, pending: 0 })); return; } setLoadingPendingCount(true); try { const { cookie, imei, userAgent } = selectedAccount; const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, { cookie, imei, userAgent }); if (response.data.success) { setStats(prev => ({ ...prev, pending: Object.keys(response.data.requests).length })); } } catch (error) { console.error("Lỗi khi lấy số lượng yêu cầu đang chờ:", error); } finally { setLoadingPendingCount(false); } }; fetchPendingRequests(); }, [selectedAccount]);
     const handleUpdateStatus = async (jobId: string | number, status: 'cancel' | 'pause' | 'process') => { if (status === 'cancel') { if (!confirm(`Bạn có chắc chắn muốn Hủy bỏ công việc #${jobId} không?`)) { return; } } setUpdatingJobId(jobId); const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; } try { const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/updateStatusRequestSendMessageAPI`, { token: token, id: jobId, status: status }); const data = response.data; if (data.code === 0) { setNotification(data.mess || "Cập nhật trạng thái thành công!"); const currentPage = parseInt(searchParams.get('page') || '1', 10); await fetchData(currentPage); } else if (data.code === 3) { router.push('/logout'); } else { throw new Error(data.mess || "Cập nhật thất bại."); } } catch (err: any) { setNotification(`Lỗi: ${err.response?.data?.mess || err.message}`); } finally { setUpdatingJobId(null); } };
 
-    const handleCreateMessageRequest = async (message: string, phoneNumbers: string[]) => {
+    const handleCreateMessageRequest = async (message: string, phoneNumbers: string[], files: File[]) => {
         const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; }
         if (!selectedAccount) { throw new Error("Vui lòng chọn một tài khoản Zalo để thực hiện."); }
         if (!pointCosts || !user) { throw new Error("Không thể xác định chi phí hoặc thông tin người dùng."); }
@@ -192,7 +280,29 @@ export default function ListSendMessageStrangerPage() {
         const totalCost = phoneNumbers.length * costPerAction;
 
         try {
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/createRequestSendMessageAPI`, { token, userId: selectedAccount.profile.userId, message, list_request: phoneNumbers, type: 'stranger' });
+            const formData = new FormData();
+            formData.append('token', token);
+            formData.append('userId', selectedAccount.profile.userId);
+            formData.append('message', message);
+            formData.append('type', 'stranger');
+            formData.append('list_request', JSON.stringify(phoneNumbers));
+
+            if (files.length > 0) {
+                files.forEach((file) => {
+                    formData.append('files[]', file); 
+                });
+            }
+
+            const response = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/apis/createRequestSendMessageAPI`, 
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    }
+                }
+            );
+
             const data = response.data;
             if (data.code === 0) {
                 const newPoints = user.point - totalCost;
