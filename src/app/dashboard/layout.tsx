@@ -10,8 +10,8 @@ import ZaloSessionGuard from '@/components/ZaloSessionGuard';
 import Link from 'next/link';
 import {
     FiUserPlus, FiMessageSquare, FiUsers, FiMapPin, FiSettings,
-    FiLogOut, FiSend, FiLoader, FiUserCheck, FiChevronDown, FiChevronUp
-} from 'react-icons/fi';
+    FiLogOut, FiSend, FiLoader, FiUserCheck, FiChevronDown, FiChevronUp, FiCode
+} from 'react-icons/fi'; // Đã thêm FiCode
 import { usePathname, useRouter } from 'next/navigation';
 
 // Component AuthGuard (không thay đổi)
@@ -125,7 +125,20 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     <SidebarLink icon={<FiMessageSquare size={20} />} text="Nhắn tin người lạ" href="/dashboard/listSendMessageStranger" active={pathname === '/dashboard/listSendMessageStranger'} />
                     <SidebarLink icon={<FiUsers size={20} />} text="Nhắn tin bạn bè" href="/dashboard/listFriendZalo" active={pathname === '/dashboard/listFriendZalo'} />
                     <SidebarLink icon={<FiUserCheck size={20} />} text="Tương tác nhóm" href="/dashboard/listGroupZalo" active={pathname === '/dashboard/listGroupZalo'} />
-                    <SidebarLink icon={<FiMapPin size={20} />} text="Tìm kiếm bản đồ" href="/dashboard/searchOnMap" active={pathname === '/dashboard/searchOnMap'} />
+                    
+                    {/* TẠM ẨN MENU TÌM KIẾM BẢN ĐỒ */}
+                    {/* <SidebarLink icon={<FiMapPin size={20} />} text="Tìm kiếm bản đồ" href="/dashboard/searchOnMap" active={pathname === '/dashboard/searchOnMap'} /> */}
+
+                    {/* MENU MỚI: TÍCH HỢP API */}
+                    <SidebarDropdown
+                        icon={<FiCode size={20} />}
+                        text="Tích hợp API"
+                        items={[
+                            { label: "API kết bạn", href: "/dashboard/api/add-friend" },
+                            { label: "API gửi tin nhắn", href: "/dashboard/api/send-message" },
+                            { label: "API thêm vào nhóm", href: "/dashboard/api/add-group" },
+                        ]}
+                    />
                 </nav>
                 
                 <div>
