@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
-// ✨ THÊM MỚI: Import axios để gửi FormData
 import axios from 'axios';
 
 // --- TYPE DEFINITIONS ---
@@ -30,9 +29,8 @@ interface ZaloGroup {
     totalMembers: number;
 }
 
-// --- COMPONENTS ---
+// --- COMPONENTS (MODALS & HELPERS) ---
 
-// Hướng dẫn cá nhân hóa tin nhắn (Giữ nguyên code gốc)
 const PersonalizationGuide = () => (
     <div className="mt-3 p-3 bg-gray-900/50 rounded-md text-sm text-gray-400 space-y-2">
         <p className="font-bold text-gray-300">💡 Hướng dẫn để không bị khóa nick Zalo:</p>
@@ -41,7 +39,6 @@ const PersonalizationGuide = () => (
     </div>
 );
 
-// Popup thông báo thành công chung (Giữ nguyên code gốc)
 const SuccessModal = ({ title, message, onClose, onViewProgress }: { title: string; message: string; onClose: () => void; onViewProgress: () => void; }) => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
@@ -56,13 +53,11 @@ const SuccessModal = ({ title, message, onClose, onViewProgress }: { title: stri
     </div>
 );
 
-// Popup gửi yêu cầu kết bạn (Giữ nguyên code gốc)
 const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('Xin chào, mình kết bạn nhé!');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const charCount = message.length;
     const isOverLimit = charCount > 120;
-
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
@@ -92,72 +87,46 @@ const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints
     );
 };
 
-// ✨ CẬP NHẬT: Popup gửi tin nhắn (CÓ HỖ TRỢ FILE)
 const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[]) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // ✨ THÊM MỚI: State quản lý file
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
-
-    // ✨ CONSTANT GIỚI HẠN FILE
     const MAX_FILES = 10;
     const MAX_SIZE_MB = 2;
     const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
-    // ✨ THÊM MỚI: Hàm xử lý chọn file
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const filesArray = Array.from(e.target.files);
             const validFiles: File[] = [];
             let validationError = '';
-
             if (selectedFiles.length + filesArray.length > MAX_FILES) {
                 setFileError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
                 e.target.value = '';
                 return;
             }
-
             filesArray.forEach(file => {
-                if (!file.type.startsWith('image/')) {
-                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
-                    return;
-                }
-                if (file.size > MAX_SIZE_BYTES) {
-                    validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`;
-                    return;
-                }
+                if (!file.type.startsWith('image/')) { validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`; return; }
+                if (file.size > MAX_SIZE_BYTES) { validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`; return; }
                 validFiles.push(file);
             });
-
-            if (validationError) {
-                setFileError(validationError);
-            } else {
-                setFileError('');
-            }
-
-            if (validFiles.length > 0) {
-                setSelectedFiles(prev => [...prev, ...validFiles]);
-            }
+            if (validationError) { setFileError(validationError); } else { setFileError(''); }
+            if (validFiles.length > 0) { setSelectedFiles(prev => [...prev, ...validFiles]); }
             e.target.value = '';
         }
     };
 
-    // ✨ THÊM MỚI: Hàm xóa file
     const handleRemoveFile = (index: number) => {
         setSelectedFiles(prev => prev.filter((_, i) => i !== index));
         setFileError('');
     };
 
     const handleSubmit = async () => {
-        // ✨ Cho phép gửi nếu có tin nhắn HOẶC có file
         if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
-        // ✨ Truyền file vào hàm onSubmit
         await onSubmit(message, selectedFiles);
         setIsSubmitting(false);
     };
@@ -169,38 +138,28 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
                     <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                    
-                    {/* ✨ THÊM MỚI: Khu vực chọn file đính kèm */}
                     <div className="mt-2">
                         <input type="file" multiple accept="image/*" id="file-upload-map" className="hidden" onChange={handleFileChange} />
                         <label htmlFor="file-upload-map" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
                             <FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})
                         </label>
-
                         {selectedFiles.length > 0 && (
                             <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                                 {selectedFiles.map((file, index) => (
                                     <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
-                                        <span className="text-gray-300 truncate max-w-[80%]">
-                                            {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
-                                        </span>
-                                        <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
-                                            <FiTrash2 />
-                                        </button>
+                                        <span className="text-gray-300 truncate max-w-[80%]">{file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span></span>
+                                        <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300"><FiTrash2 /></button>
                                     </div>
                                 ))}
                             </div>
                         )}
                         {fileError && <p className="text-sm text-red-400 mt-1 font-semibold">{fileError}</p>}
-                        <p className="text-xs text-gray-500 mt-1 italic">* Chỉ chấp nhận file ảnh, tối đa {MAX_SIZE_MB}MB/file, tối đa {MAX_FILES} file.</p>
                     </div>
-
                     {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
                     <PersonalizationGuide />
                 </div>
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    {/* Disable nếu: (không tin nhắn VÀ không file) HOẶC đang gửi HOẶC không đủ điểm */}
                     <button onClick={handleSubmit} disabled={isSubmitting || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
                 </div>
             </div>
@@ -208,14 +167,12 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
     );
 };
 
-// Popup thêm vào nhóm (Giữ nguyên code gốc)
 const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (groupId: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const { selectedAccount } = useZaloAccounts();
     const [groups, setGroups] = useState<ZaloGroup[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
@@ -262,7 +219,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
     );
 };
 
-
 // --- MAIN PAGE COMPONENT ---
 export default function SearchOnMapPage() {
     const { selectedAccount } = useZaloAccounts();
@@ -270,72 +226,194 @@ export default function SearchOnMapPage() {
     const { user, updateUserPoints } = useAuth();
     const router = useRouter();
     const addressInputRef = useRef<HTMLInputElement>(null);
-    const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-    
+
+    // ✨ BIẾN CỜ HIỆU: True nếu vừa bấm chọn, False nếu đang gõ
+    const isSelection = useRef(false);
+
     const [keyword, setKeyword] = useState('');
     const [radius, setRadius] = useState('1000');
     const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [address, setAddress] = useState('');
     
     const [results, setResults] = useState<PlaceResult[]>([]);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     const [modalState, setModalState] = useState<'none' | 'sendMessage' | 'addFriend' | 'addToGroup'>('none');
     const [successInfo, setSuccessInfo] = useState<{ title: string; message: string; redirectUrl: string } | null>(null);
-    
-    // Logic useEffects để tải script và Autocomplete (Giữ nguyên code gốc của bạn)
-    useEffect(() => {
-    const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!GOOGLE_MAPS_API_KEY) {
-        console.error("Google Maps API Key is missing!");
-        setError("Lỗi cấu hình: Không tìm thấy Google Maps API Key.");
-        return;
-    }
 
-    if ((window as any).google) {
-        setIsScriptLoaded(true);
-        return;
-    }
-
-    if (!document.querySelector(`script[src*="maps.googleapis.com/maps/api/js"]`)) {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => setIsScriptLoaded(true);
-        document.head.appendChild(script);
-    } else {
-        setIsScriptLoaded(true);
-    }
+    // Xử lý lấy vị trí GPS
+    const handleGetGPS = useCallback(async () => { 
+        if (!navigator.geolocation) { setError("Trình duyệt không hỗ trợ định vị."); return; } 
+        try { 
+            const permission = await navigator.permissions.query({ name: 'geolocation' }); 
+            if (permission.state === 'granted' || permission.state === 'prompt') { 
+                setAddress('Đang lấy vị trí...');
+                // Đánh dấu để không trigger autocomplete
+                isSelection.current = true;
+                
+                navigator.geolocation.getCurrentPosition( 
+                    (position) => { 
+                        setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); 
+                        setAddress('📍 Vị trí GPS hiện tại của bạn');
+                        setSuggestions([]); 
+                    }, 
+                    () => {
+                        setAddress('');
+                        setError("Không thể lấy vị trí GPS."); 
+                    }
+                ); 
+            } else if (permission.state === 'denied') { 
+                setError("Bạn đã chặn quyền truy cập vị trí. Vui lòng cho phép trong cài đặt trình duyệt."); 
+            } 
+        } catch (err) { 
+            console.error("Lỗi khi yêu cầu quyền GPS:", err); 
+            setError("Có lỗi xảy ra khi yêu cầu quyền vị trí."); 
+        } 
     }, []);
 
-    useEffect(() => { if (isScriptLoaded && addressInputRef.current && (window as any).google) { const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, { types: ['address'], componentRestrictions: { 'country': 'vn' } }); autocomplete.addListener('place_changed', () => { const place = autocomplete.getPlace(); if (place.geometry?.location) { setCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }); setAddress(addressInputRef.current?.value || ''); } }); } }, [isScriptLoaded]);
-    const handleGetGPS = useCallback(async () => { if (!navigator.geolocation) { setError("Trình duyệt không hỗ trợ định vị."); return; } try { const permission = await navigator.permissions.query({ name: 'geolocation' }); if (permission.state === 'granted' || permission.state === 'prompt') { if (addressInputRef.current) addressInputRef.current.value = 'Đang lấy vị trí...'; navigator.geolocation.getCurrentPosition( (position) => { setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); if (addressInputRef.current) { addressInputRef.current.value = `📍 Vị trí GPS của bạn`; setAddress('Vị trí GPS của bạn'); } }, () => setError("Không thể lấy vị trí GPS.") ); } else if (permission.state === 'denied') { setError("Bạn đã chặn quyền truy cập vị trí. Vui lòng cho phép trong cài đặt trình duyệt."); } } catch (err) { console.error("Lỗi khi yêu cầu quyền GPS:", err); setError("Có lỗi xảy ra khi yêu cầu quyền vị trí."); } }, []);
-    
-    // Logic handleSearch (Giữ nguyên code gốc của bạn)
-    const handleSearch = async () => { if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } setLoading(true); setError(null); setResults([]); try { const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, radius, lat: coords?.lat, lng: coords?.lng, address: coords ? undefined : address }), }); const data = await response.json(); if (!response.ok || !data.success) { throw new Error(data.message || 'Có lỗi xảy ra từ server.'); } setResults(data.results || []); } catch (err: any) { setError(err.message); } finally { setLoading(false); } };
+    // ✨ HÀM XỬ LÝ KHI GÕ (Chỉ cập nhật UI, không gọi API ngay)
+    const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // Đánh dấu: Đang nhập liệu -> CHO PHÉP tìm kiếm
+        isSelection.current = false;
+        
+        setAddress(e.target.value);
+        setCoords(null); 
 
-    // Hàm Xuất Excel (Giữ nguyên code gốc của bạn)
+        if (!e.target.value) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    // ✨ CẬP NHẬT: Khi chọn địa chỉ -> Lấy luôn tọa độ
+    const selectSuggestion = async (prediction: any) => {
+        // Đánh dấu: Đã chọn xong -> CHẶN tìm kiếm
+        isSelection.current = true;
+        
+        // 1. Hiển thị text lên ô input
+        setAddress(prediction.description);
+        setSuggestions([]);
+        setShowSuggestions(false);
+
+        // 2. Gọi API lấy tọa độ chi tiết của địa điểm vừa chọn
+        try {
+            // Hiển thị trạng thái đang lấy tọa độ (nếu cần)
+            console.log("Đang lấy tọa độ cho:", prediction.description);
+            
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-place-detail`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ place_id: prediction.place_id }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.location) {
+                // ✨ LƯU TỌA ĐỘ VÀO STATE
+                setCoords({ lat: data.location.lat, lng: data.location.lng });
+                console.log("Đã cập nhật tọa độ:", data.location);
+            }
+        } catch (err) {
+            console.error("Lỗi khi lấy tọa độ chi tiết:", err);
+        }
+    };
+
+    // ✨ USEEFFECT VỚI DEBOUNCE (800ms)
+    useEffect(() => {
+        // Nếu biến cờ là true (vừa chọn xong) thì dừng ngay, không gọi API
+        if (isSelection.current) return;
+
+        // Chỉ chạy nếu address có nội dung và dài hơn 3 ký tự
+        if (!address || address.length < 3) {
+            setSuggestions([]);
+            return;
+        }
+
+        const delayDebounceFn = setTimeout(async () => {
+            console.log("Đang tìm gợi ý địa chỉ cho:", address);
+            try {
+                // Gọi về Backend (đã có cơ chế đổi Key ở server.js)
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/place-autocomplete`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ input: address }), 
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    setSuggestions(data.predictions);
+                    setShowSuggestions(true);
+                }
+            } catch (err) {
+                console.error("Lỗi Autocomplete:", err);
+            }
+        }, 800); // Delay 800ms
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [address]);
+
+    // Xử lý tìm kiếm (Backend đã switch sang Goong Multi-keys)
+    const handleSearch = async () => { 
+        if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } 
+        if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } 
+        
+        setLoading(true); 
+        setError(null); 
+        setResults([]); 
+        
+        try { 
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places-google`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ keyword, radius, lat: coords?.lat, lng: coords?.lng, address: coords ? undefined : address }), 
+            }); 
+            const data = await response.json(); 
+            if (!response.ok || !data.success) { throw new Error(data.message || 'Có lỗi xảy ra từ server.'); } 
+            setResults(data.results || []); 
+        } catch (err: any) { 
+            setError(err.message); 
+        } finally { 
+            setLoading(false); 
+        } 
+    };
+
+    // Xuất Excel
     const handleExport = () => {
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         const cost = pointCosts.export_data_map || 0;
         if (user.point < cost) { alert(`Không đủ điểm để xuất dữ liệu. Cần ${cost}, bạn đang có ${user.point}.`); return; }
         const phoneNumbers = results.map(r => r.international_phone_number).filter(Boolean);
         if (phoneNumbers.length === 0) { alert("Không có số điện thoại nào trong danh sách để xuất."); return; }
-        const dataForExcel = results.map(place => ({ "Tên Địa Điểm": place.name, "Địa Chỉ": place.formatted_address, "Số Điện Thoại": place.international_phone_number, "Website": place.website, "Đánh Giá": place.rating, "Link Google Maps": place.url }));
+        const dataForExcel = results.map(place => ({ "Tên Địa Điểm": place.name, "Địa Chỉ": place.formatted_address, "Số Điện Thoại": place.international_phone_number, "Website": place.website, "Đánh Giá": place.rating, "Link Bản Đồ": place.url }));
         const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Địa Điểm");
-        XLSX.writeFile(workbook, "Danh_Sach_Dia_Diem.xlsx");
+        XLSX.writeFile(workbook, "Danh_Sach_Dia_Diem_VN.xlsx");
         updateUserPoints(user.point - cost);
         alert(`Xuất file thành công! Đã trừ ${cost} điểm.`);
     };
 
-    // Hàm createRequest cơ bản cho các hành động JSON (Giữ nguyên)
-    const createRequest = async (endpoint: string, payload: object) => { const token = localStorage.getItem('authToken'); if (!token) throw new Error("Không tìm thấy token xác thực."); const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, token }), }); const data = await response.json(); if (!response.ok || data.code !== 0) { if(data.code === 3) router.push('/logout'); throw new Error(data.message || "Tạo yêu cầu thất bại."); } };
-    
-    // ✨ CẬP NHẬT: Hàm xử lý hành động (Hỗ trợ gửi File cho tin nhắn)
+    // Helper request
+    const createRequest = async (endpoint: string, payload: object) => { 
+        const token = localStorage.getItem('authToken'); 
+        if (!token) throw new Error("Không tìm thấy token xác thực."); 
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/${endpoint}`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ ...payload, token }), 
+        }); 
+        const data = await response.json(); 
+        if (!response.ok || data.code !== 0) { 
+            if(data.code === 3) router.push('/logout'); 
+            throw new Error(data.message || "Tạo yêu cầu thất bại."); 
+        } 
+    };
+
+    // Xử lý hành động: Tin nhắn, Kết bạn, Thêm nhóm
     const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup', files: File[] = []) => {
         if (!selectedAccount) { setError("Vui lòng chọn tài khoản Zalo để thực hiện."); return; }
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
@@ -356,7 +434,6 @@ export default function SearchOnMapPage() {
         setModalState('none');
         try {
             if (actionType === 'message') {
-                // ✨ XỬ LÝ GỬI TIN NHẮN (CÓ THỂ KÈM FILE) BẰNG AXIOS + FORMDATA
                 const token = localStorage.getItem('authToken');
                 if (!token) throw new Error("Không tìm thấy token.");
 
@@ -386,7 +463,6 @@ export default function SearchOnMapPage() {
                 await createRequest('addMemberToGroupAPI', { userId: selectedAccount.profile.userId, groupId: messageOrGroupId, phones: phoneNumbers });
                 setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu thêm <b>${phoneNumbers.length}</b> SĐT vào nhóm.`, redirectUrl: '/dashboard/listRequestAddMemberGroup' });
             }
-            // Trừ điểm sau khi tạo yêu cầu thành công
             updateUserPoints(user.point - totalCost);
         } catch (err: any) {
             setError(err.message);
@@ -394,8 +470,6 @@ export default function SearchOnMapPage() {
     };
 
     const phoneCount = useMemo(() => results.map(r => r.international_phone_number).filter(Boolean).length, [results]);
-    
-    // Biến để kiểm tra điểm cho nút Xuất Excel
     const exportCost = pointCosts?.export_data_map ?? 0;
     const canExport = user && user.point >= exportCost;
 
@@ -403,15 +477,57 @@ export default function SearchOnMapPage() {
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {/* CẬP NHẬT: Truyền đúng tham số cho SendMessageModal */}
             {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files) => handleSubmitAction(msg, 'message', files)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
-            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Google Maps</h1>
+            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Goong Map (VN)</h1>
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-gray-300 mb-2">Từ khóa tìm kiếm</label><input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="VD: spa, nhà hàng chay, salon tóc..." className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div><div><label className="block text-sm font-medium text-gray-300 mb-2">Bán kính</label><select value={radius} onChange={e => setRadius(e.target.value)} className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="1000">1 km</option><option value="3000">3 km</option><option value="5000">5 km</option><option value="10000">10 km</option></select></div></div>
-                <div><label className="block text-sm font-medium text-gray-300 mb-2">Địa chỉ hoặc vị trí</label><div className="flex gap-2"><input ref={addressInputRef} onChange={e => setAddress(e.target.value)} type="text" placeholder="Nhập địa chỉ hoặc dùng GPS" className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={handleGetGPS} title="Lấy vị trí GPS hiện tại" className="bg-gray-600 hover:bg-gray-500 p-3 rounded-md"><FiCrosshair size={20}/></button></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Từ khóa tìm kiếm</label>
+                        <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="VD: spa, nhà hàng chay, salon tóc..." className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Bán kính</label>
+                        <select value={radius} onChange={e => setRadius(e.target.value)} className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="1000">1 km</option><option value="3000">3 km</option><option value="5000">5 km</option><option value="10000">10 km</option></select>
+                    </div>
+                </div>
+                
+                {/* --- AUTOCOMPLETE DROPDOWN --- */}
+                <div className="relative">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Địa chỉ hoặc vị trí</label>
+                    <div className="flex gap-2">
+                        <div className="relative w-full">
+                            <input 
+                                ref={addressInputRef}
+                                value={address}
+                                onChange={handleAddressChange}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} 
+                                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                                type="text" 
+                                placeholder="Nhập địa chỉ (VD: Quận 1, TP HCM) hoặc dùng GPS" 
+                                className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            {showSuggestions && suggestions.length > 0 && (
+                                <ul className="absolute z-10 w-full bg-gray-700 border border-gray-600 rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                    {suggestions.map((item) => (
+                                        <li 
+                                            key={item.place_id} 
+                                            onMouseDown={() => selectSuggestion(item)}
+                                            className="p-3 hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-600 last:border-0"
+                                        >
+                                            <p className="font-bold text-white">{item.structured_formatting.main_text}</p>
+                                            <p className="text-gray-400 text-xs">{item.structured_formatting.secondary_text}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <button onClick={handleGetGPS} title="Lấy vị trí GPS hiện tại" className="bg-gray-600 hover:bg-gray-500 p-3 rounded-md"><FiCrosshair size={20}/></button>
+                    </div>
+                </div>
+
                 <button onClick={handleSearch} disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md disabled:opacity-50">{loading ? <><FiLoader className="animate-spin"/> Đang tìm kiếm...</> : <><FiSearch/> Tìm kiếm</>}</button>
             </div>
 
@@ -437,7 +553,7 @@ export default function SearchOnMapPage() {
                                     {place.international_phone_number && <p className="text-blue-400 font-semibold">{place.international_phone_number}</p>}
                                     {place.website && <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Website</a>}
                                     {place.rating && <p className="text-yellow-400">{place.rating} ⭐ ({place.user_ratings_total})</p>}
-                                    <a href={place.url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:underline">Xem trên Maps</a>
+                                    {place.url && <a href={place.url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:underline">Xem bản đồ</a>}
                                 </div>
                             </div>
                         ))}

@@ -127,7 +127,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     <SidebarLink icon={<FiUserCheck size={20} />} text="Tương tác nhóm" href="/dashboard/listGroupZalo" active={pathname === '/dashboard/listGroupZalo'} />
                     
                     {/* TẠM ẨN MENU TÌM KIẾM BẢN ĐỒ */}
-                    {/* <SidebarLink icon={<FiMapPin size={20} />} text="Tìm kiếm bản đồ" href="/dashboard/searchOnMap" active={pathname === '/dashboard/searchOnMap'} /> */}
+                    <SidebarLink icon={<FiMapPin size={20} />} text="Tìm kiếm bản đồ" href="/dashboard/searchOnMap" active={pathname === '/dashboard/searchOnMap'} />
 
                     {/* MENU MỚI: TÍCH HỢP API */}
                     <SidebarDropdown
