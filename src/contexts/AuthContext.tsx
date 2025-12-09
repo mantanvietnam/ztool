@@ -4,22 +4,21 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 
-// Định nghĩa kiểu dữ liệu cho thông tin người dùng (đã có sẵn)
+// Giữ nguyên interface cũ, chỉ thêm field proxy (tùy chọn) để code không báo lỗi
 interface User {
     id: number;
     full_name: string;
     phone: string;
     email: string;
     point: number;
+    proxy?: any; // ✨ Thêm dòng này
 }
 
-// CẬP NHẬT: Định nghĩa kiểu dữ liệu cho Context
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     logout: () => void;
-    // THÊM MỚI: Khai báo hàm cập nhật điểm
     updateUserPoints: (newPoints: number) => void;
 }
 
@@ -35,22 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('zaloAccounts');
         localStorage.removeItem('selectedZaloAccountId');
+        localStorage.removeItem('userProxy'); // ✨ Bổ sung: Xóa proxy khi logout
         setUser(null);
         router.push('/login');
     }, [router]);
 
-    // THÊM MỚI: Hàm để cập nhật điểm từ các component con
     const updateUserPoints = useCallback((newPoints: number) => {
         setUser(currentUser => {
             if (currentUser) {
-                console.log(`Cập nhật điểm từ ${currentUser.point} -> ${newPoints}`);
-                // Trả về một object user mới với số điểm đã được cập nhật
+                // console.log(`Cập nhật điểm từ ${currentUser.point} -> ${newPoints}`);
                 return { ...currentUser, point: newPoints };
             }
-            return null; // Trả về null nếu không có user hiện tại
+            return null;
         });
-    }, []); // useCallback với mảng rỗng để hàm không bị tạo lại mỗi lần render
-
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -67,8 +64,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 );
                 if (!isMounted) return;
                 const data = response.data;
+
                 if (data.code === 0) {
                     setUser(data.data);
+
+                    // ======================================================
+                    // ✨ PHẦN BỔ SUNG DUY NHẤT: CẬP NHẬT PROXY
+                    // ======================================================
+                    // Kiểm tra xem dữ liệu user trả về có chứa thông tin proxy không
+                    const userData = data.data; 
+                    if (userData && userData.proxy) {
+                        const proxyRaw = userData.proxy;
+                        // Chuyển đổi sang định dạng server cần (host, port, user, pass)
+                        const formattedProxy = {
+                            id: proxyRaw.id,
+                            host: proxyRaw.ip,
+                            port: proxyRaw.port,
+                            user: proxyRaw.username,
+                            pass: proxyRaw.password,
+                            protocol: proxyRaw.protocol
+                        };
+                        localStorage.setItem('userProxy', JSON.stringify(formattedProxy));
+                    } else {
+                        // Nếu user không có proxy, xóa dữ liệu cũ trong localStorage đi
+                        localStorage.removeItem('userProxy');
+                    }
+                    // ======================================================
+
                 } else {
                     logout();
                 }
@@ -82,14 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => { isMounted = false; };
     }, [pathname, logout]);
 
-
-    // CẬP NHẬT: Thêm `updateUserPoints` vào giá trị của context
     const value = { user, isAuthenticated: !!user, isLoading, logout, updateUserPoints };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook để sử dụng AuthContext (không thay đổi)
 export function useAuth() {
     const context = useContext(AuthContext);
     if (!context) {

@@ -194,6 +194,9 @@ export default function ListRequestAddFriendPage() {
     const [updatingJobId, setUpdatingJobId] = useState<string | number | null>(null);
     const [viewingStatsJob, setViewingStatsJob] = useState<AddFriendJob | null>(null);
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     const fetchData = useCallback(async (page: number) => {
         if (!selectedAccount) { setLoading(false); return; }
         setLoading(true); setError('');
@@ -221,7 +224,7 @@ export default function ListRequestAddFriendPage() {
             setLoadingFriendCount(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friend-count`, { cookie, imei, userAgent });
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friend-count`, { cookie, imei, userAgent, proxy: savedProxy  });
                 if (response.data.success) { setStats(prev => ({ ...prev, friends: response.data.count })); }
             } catch (error) { console.error("Lỗi khi lấy số lượng bạn bè:", error); } finally { setLoadingFriendCount(false); }
         };
@@ -234,7 +237,7 @@ export default function ListRequestAddFriendPage() {
             setLoadingPendingCount(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, { cookie, imei, userAgent });
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, { cookie, imei, userAgent, proxy: savedProxy  });
                 if (response.data.success) { setStats(prev => ({ ...prev, pending: Object.keys(response.data.requests).length })); }
             } catch (error) { console.error("Lỗi khi lấy số lượng yêu cầu đang chờ:", error); } finally { setLoadingPendingCount(false); }
         };

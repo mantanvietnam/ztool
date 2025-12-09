@@ -73,13 +73,16 @@ const AddMemberToGroupModal = ({ onClose, onSubmit, pointCost, currentUserPoints
     const [calculatedCost, setCalculatedCost] = useState(0);
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     useEffect(() => {
         const fetchGroups = async () => {
             if (!selectedAccount) return;
             setIsLoadingGroups(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { cookie, imei, userAgent });
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { cookie, imei, userAgent, proxy: savedProxy  });
                 if (response.data.success) {
                     setGroups(response.data.groups || []);
                 }
@@ -209,6 +212,9 @@ export default function ListRequestAddMemberGroupPage() {
     const [updatingJobId, setUpdatingJobId] = useState<string | number | null>(null);
     const [viewingStatsJob, setViewingStatsJob] = useState<AddMemberJob | null>(null);
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     // Toàn bộ logic fetchData và các useEffect khác của bạn được giữ nguyên
     const fetchData = useCallback(async (page: number) => {
         if (!selectedAccount) { setLoading(false); return; }
@@ -222,7 +228,7 @@ export default function ListRequestAddMemberGroupPage() {
                 const initialJobs = (data.listData || []).map((item: any, index: number) => ({ ...item, id: item.id || `job-${index}-${Date.now()}` }));
                 if (initialJobs.length > 0) {
                     const groupIds = [...new Set(initialJobs.map((job: AddMemberJob) => job.group_id).filter(Boolean))];
-                    const groupInfoPromises = groupIds.map(groupId => axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-group-info/${groupId}`, { cookie: selectedAccount.cookie, imei: selectedAccount.imei, userAgent: selectedAccount.userAgent, }).catch(() => null) );
+                    const groupInfoPromises = groupIds.map(groupId => axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-group-info/${groupId}`, { cookie: selectedAccount.cookie, imei: selectedAccount.imei, userAgent: selectedAccount.userAgent, proxy: savedProxy  }).catch(() => null) );
                     const groupInfoResults = await Promise.all(groupInfoPromises);
                     const groupInfoMap = new Map<string, { name: string, totalMembers: number }>();
                     groupInfoResults.forEach(result => { if (result && result.data.success) { const groupInfo = result.data.details.groupInfo; groupInfoMap.set(groupInfo.groupId, { name: groupInfo.name, totalMembers: groupInfo.totalMember }); } });

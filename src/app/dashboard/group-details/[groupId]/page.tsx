@@ -252,12 +252,15 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
     const [availableGroups, setAvailableGroups] = useState<TargetGroup[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     useEffect(() => {
         const fetchGroups = async () => {
             setLoadingGroups(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { cookie, imei, userAgent });
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { cookie, imei, userAgent, proxy: savedProxy  });
                 if (response.data.success && response.data.groups) {
                     const otherGroups = response.data.groups.filter((g: any) => g.id !== currentGroupId);
                     setAvailableGroups(otherGroups);
@@ -359,12 +362,15 @@ export default function GroupDetailsPage() {
     
     const [successInfo, setSuccessInfo] = useState<{ title: string; message: string; redirectUrl: string } | null>(null);
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     useEffect(() => {
         if (!groupId || !selectedAccount) { if (!selectedAccount) setError("Vui lòng chọn tài khoản."); setLoading(false); return; }
         const fetchDetails = async () => {
             setLoading(true); setError(null);
             try {
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-group-details/${groupId}`, { cookie: selectedAccount.cookie, imei: selectedAccount.imei, userAgent: selectedAccount.userAgent });
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-group-details/${groupId}`, { cookie: selectedAccount.cookie, imei: selectedAccount.imei, userAgent: selectedAccount.userAgent, proxy: savedProxy  });
                 if (!response.data.success) throw new Error(response.data.message || "Lỗi tải nhóm.");
                 setDetails({ groupInfo: response.data.details.groupInfo, members: response.data.details.members || [] });
             } catch (err: any) { setError(err.message); } finally { setLoading(false); }

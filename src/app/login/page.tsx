@@ -13,13 +13,34 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isCheckingToken, setIsCheckingToken] = useState(true); // State để kiểm tra token
+    const [isCheckingToken, setIsCheckingToken] = useState(true);
     const router = useRouter();
+
+    // Hàm helper để xử lý lưu Proxy (Dùng chung cho cả Login và Check Token)
+    const saveProxyToStorage = (userData: any) => {
+        if (userData && userData.proxy) {
+            const proxyData = userData.proxy;
+            // Chuẩn hóa dữ liệu về dạng { host, port, user, pass } để Node.js dễ dùng
+            const formattedProxy = {
+                id: proxyData.id,
+                host: proxyData.ip,
+                port: proxyData.port,
+                user: proxyData.username,
+                pass: proxyData.password,
+                protocol: proxyData.protocol
+            };
+            localStorage.setItem('userProxy', JSON.stringify(formattedProxy));
+            console.log("Đã lưu thông tin Proxy:", formattedProxy.host);
+        } else {
+            // Nếu tài khoản không có proxy, xóa dữ liệu cũ (nếu có)
+            localStorage.removeItem('userProxy');
+            console.log("Tài khoản không có Proxy. Đã xóa cache proxy cũ.");
+        }
+    };
 
     const loadAndValidateZaloAccounts = async (token: string) => {
         localStorage.removeItem('zaloAccounts');
 
-        //GỌI API LẤY DANH SÁCH TÀI KHOẢN ZALO
         try {
             console.log("Đang lấy danh sách tài khoản Zalo đã lưu...");
             const zaloAccountsResponse = await axios.post(
@@ -32,6 +53,11 @@ export default function LoginPage() {
                 const accountsFromApi = Object.values(zaloAccountsResponse.data.data);
                 const validAccounts = [];
 
+                // Lấy thông tin proxy hiện tại (nếu có) để gửi kèm request check-session
+                // Phòng trường hợp backend cần proxy để check session
+                const savedProxyStr = localStorage.getItem('userProxy');
+                const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
                 // ✨ BƯỚC 3: KIỂM TRA HIỆU LỰC TỪNG TÀI KHOẢN
                 for (const account of accountsFromApi) {
                     try {
@@ -39,13 +65,15 @@ export default function LoginPage() {
                         const profile = JSON.parse((account as any).profile);
                         
                         // Gọi API backend để kiểm tra
-                        const checkRes = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/check-session`, session);
+                        // ✨ Gửi kèm proxy nếu backend hỗ trợ check qua proxy
+                        const checkRes = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/check-session`, {
+                            ...session,
+                            proxy: savedProxy 
+                        });
 
                         if (checkRes.data.isValid) {
-                            // Nếu hợp lệ, thêm vào danh sách sẽ lưu
                             validAccounts.push({ profile, ...session });
                         } else {
-                            // Nếu không hợp lệ, gọi API xóa
                             console.log(`Tài khoản ${profile.displayName} đã hết hạn, đang xóa...`);
                             await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/deleteInfoZaloAPI`, {
                                 token: token,
@@ -61,14 +89,10 @@ export default function LoginPage() {
                 localStorage.setItem('zaloAccounts', JSON.stringify(validAccounts));
                 console.log(`Đã lưu ${validAccounts.length} tài khoản Zalo còn hiệu lực.`);
             }
-
-            
         } catch (zaloError) {
-            // Nếu lỗi ở bước này, vẫn cho phép đăng nhập nhưng không có tài khoản Zalo nào
             console.log("Không thể lấy danh sách tài khoản Zalo:", zaloError);
         }
     };
-
 
     useEffect(() => {
         const checkExistingToken = async () => {
@@ -80,16 +104,19 @@ export default function LoginPage() {
                         { token: token }
                     );
                     
-                    // ✨ 2. NẾU TOKEN HỢP LỆ (CODE === 0)
                     if (response.data.code === 0) {
+                        // ✨ CẬP NHẬT: Lưu lại proxy khi load lại trang (F5)
+                        // Giả sử api getInfoMemberAPI trả về cấu trúc tương tự infoUser
+                        if (response.data.infoUser) {
+                            saveProxyToStorage(response.data.infoUser);
+                        }
+
                         await loadAndValidateZaloAccounts(token);
                         router.push('/dashboard');
                     } else {
-                        // ✨ 3. NẾU TOKEN KHÔNG HỢP LỆ, ĐĂNG XUẤT
                         router.push('/logout');
                     }
                 } catch (error) {
-                    // Nếu API bị lỗi, cũng coi như token không hợp lệ và đăng xuất
                     console.error("Lỗi xác thực token:", error);
                     router.push('/logout');
                 }
@@ -113,13 +140,19 @@ export default function LoginPage() {
             });
 
             if (response.data.code === 1 && response.data.infoUser.token) {
-                const authToken = response.data.infoUser.token;
+                const userInfo = response.data.infoUser;
+                const authToken = userInfo.token;
 
-                localStorage.setItem('authToken', response.data.infoUser.token);
+                // 1. Lưu Token
+                localStorage.setItem('authToken', authToken);
 
+                // 2. ✨ CẬP NHẬT: Lưu Proxy (Sử dụng hàm helper)
+                saveProxyToStorage(userInfo);
+
+                // 3. Load danh sách tài khoản Zalo
                 await loadAndValidateZaloAccounts(authToken);
                 
-                // Chuyển đến dashboard
+                // 4. Chuyển hướng
                 router.push('/dashboard');
             } else {
                 setError(response.data.messages[0].text || 'Thông tin đăng nhập không chính xác.');
@@ -132,7 +165,6 @@ export default function LoginPage() {
         }
     };
 
-    // Hiển thị màn hình chờ trong khi kiểm tra token
     if (isCheckingToken) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -141,7 +173,6 @@ export default function LoginPage() {
         );
     }
     
-    // Nếu không có token, hiển thị form đăng nhập như bình thường
     return (
         <main className="flex items-center justify-center min-h-screen bg-gray-900 text-gray-100 p-4">
             <div className="w-full max-w-md bg-gray-800 rounded-lg shadow-xl p-8 space-y-6">

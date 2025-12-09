@@ -19,8 +19,11 @@ export default function ZaloSessionGuard() {
         const validateSession = async () => {
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
+                const savedProxyStr = localStorage.getItem('userProxy');
+                const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+                
                 const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/check-session`, {
-                    cookie, imei, userAgent
+                    cookie, imei, userAgent, proxy: savedProxy 
                 });
 
                 if (!response.data.isValid) {

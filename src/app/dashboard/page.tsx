@@ -91,6 +91,9 @@ export default function DashboardHomePage() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [isLoadingProcess, setIsLoadingProcess] = useState(false);
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     // --- Effect 1: Gọi API lấy danh sách bạn bè (NodeJS) ---
     useEffect(() => {
         const fetchFriendCount = async () => {
@@ -101,7 +104,7 @@ export default function DashboardHomePage() {
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent }),
+                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }),
                 });
                 const data = await response.json();
                 if (data.success && Array.isArray(data.friends)) {
@@ -129,7 +132,7 @@ export default function DashboardHomePage() {
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent }),
+                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }),
                 });
                 const data = await response.json();
                 if (data.success && data.requests && typeof data.requests === 'object') {
@@ -157,7 +160,7 @@ export default function DashboardHomePage() {
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent }),
+                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }),
                 });
                 const data = await response.json();
                 if (data.success && Array.isArray(data.groups)) {

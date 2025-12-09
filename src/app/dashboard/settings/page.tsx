@@ -45,16 +45,17 @@ const Button = ({ children, onClick, type = 'button' }: { children: React.ReactN
 export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
- const [showCurrent, setShowCurrent] = useState(false);
- const [showNew, setShowNew] = useState(false);
- const [showConfirm, setShowConfirm] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [username, setUsername] = useState(''); 
   const [Email, setEmail] = useState('');
   const [Phone, setPhone] = useState('');
   const [successMessage, setSuccessMessage] = useState(""); 
-   const [successDosenotmatch, setSuccessDosenotmatch] = useState(""); 
+  const [successDosenotmatch, setSuccessDosenotmatch] = useState(""); 
   const [errorMessage, setErrorMessage] = useState("");    
+  
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem("authToken");
@@ -77,6 +78,29 @@ export default function SettingsPage() {
           setUsername(data.data.full_name || '');
           setEmail(data.data.email || '');
           setPhone(data.data.phone || '');
+
+          // ======================================================
+          // ✨ PHẦN BỔ SUNG: CẬP NHẬT PROXY VÀO LOCALSTORAGE
+          // ======================================================
+          const userData = data.data;
+          if (userData && userData.proxy) {
+              const proxyRaw = userData.proxy;
+              // Chuyển đổi sang định dạng chuẩn (host, port, user, pass, id)
+              const formattedProxy = {
+                  id: proxyRaw.id,
+                  host: proxyRaw.ip,
+                  port: proxyRaw.port,
+                  user: proxyRaw.username,
+                  pass: proxyRaw.password,
+                  protocol: proxyRaw.protocol
+              };
+              localStorage.setItem('userProxy', JSON.stringify(formattedProxy));
+          } else {
+              // Nếu API trả về không có proxy -> Xóa cache cũ để tránh dùng proxy chết
+              localStorage.removeItem('userProxy');
+          }
+          // ======================================================
+
         } else {
           console.log("Lỗi API:", data.mess);
         }

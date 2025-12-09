@@ -115,7 +115,9 @@ export default function ListRequestDeleteFriendPage() {
     const [updatingJobId, setUpdatingJobId] = useState<string | number | null>(null);
     const [viewingStatsJob, setViewingStatsJob] = useState<DeleteFriendJob | null>(null);
     
-
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+    
     const fetchData = useCallback(async (page: number) => {
         if (!selectedAccount) {
             setLoading(false);
@@ -179,7 +181,7 @@ export default function ListRequestDeleteFriendPage() {
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
                 const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friend-count`, {
-                    cookie, imei, userAgent
+                    cookie, imei, userAgent, proxy: savedProxy 
                 });
                 if (response.data.success) {
                     setStats(prev => ({ ...prev, friends: response.data.count }));
@@ -204,7 +206,7 @@ export default function ListRequestDeleteFriendPage() {
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
                 const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
-                    cookie, imei, userAgent
+                    cookie, imei, userAgent, proxy: savedProxy 
                 });
                 if (response.data.success) {
                     setStats(prev => ({ ...prev, pending: Object.keys(response.data.requests).length}));

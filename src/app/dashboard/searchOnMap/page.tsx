@@ -176,13 +176,16 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     useEffect(() => {
         const fetchGroups = async () => {
             if (!selectedAccount) return;
             setIsLoading(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cookie, imei, userAgent }), });
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }), });
                 const data = await response.json();
                 if (data.success) setGroups(data.groups || []);
             } catch (error) { console.error("Lỗi khi tải danh sách nhóm:", error); } 

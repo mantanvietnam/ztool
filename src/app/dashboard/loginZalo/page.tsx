@@ -13,17 +13,31 @@ export default function LoginZaloPage() {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const router = useRouter();
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     const startNewSession = useCallback(async () => {
         try {
             setStatusData({ status: 'INITIALIZING', message: 'Đang yêu cầu mã QR mới...' });
-            const startRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/start-login`);
-            const startData = await startRes.json();
+            
+            // ✨ THAY ĐỔI: Vẫn dùng fetch, nhưng thêm options để POST proxy
+            const startRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/start-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ proxy: savedProxy }) // Gửi proxy tại đây
+            });
+            
+            // Giữ nguyên dòng này như code cũ của bạn
+            const startData = await startRes.json(); 
+
             if (!startData.success) throw new Error(startData.message);
             setSessionId(startData.sessionId);
         } catch (error: any) {
             setStatusData({ status: 'FAILED', message: error.message || 'Không thể bắt đầu phiên đăng nhập.' });
         }
-    }, []);
+    }, [savedProxy]); 
 
     useEffect(() => {
         startNewSession();
@@ -34,11 +48,20 @@ export default function LoginZaloPage() {
 
         const intervalId = setInterval(async () => {
             try {
-                const statusRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/zalo-status/${sessionId}`);
+                // ✨ THAY ĐỔI: Vẫn dùng fetch, thêm options POST
+                const statusRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/zalo-status/${sessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ proxy: savedProxy })
+                });
+
+                // Giữ nguyên dòng này như code cũ của bạn
                 const data = await statusRes.json();
+                
                 setStatusData(data);
 
-                // ✨ THAY ĐỔI: Gộp `data.profile` và `data.session` trước khi lưu
                 if (data.status === 'LOGGED_IN' && data.session && data.profile) {
                     if (intervalId) clearInterval(intervalId);
 
@@ -48,13 +71,12 @@ export default function LoginZaloPage() {
                     if (!authToken) {
                         throw new Error("Không tìm thấy token xác thực người dùng.");
                     }
-
                     
-                    // lưu database
                     try {
+                        // Đoạn này code gốc bạn dùng axios thì vẫn giữ axios
                         const response = await axios.post(
                             `${process.env.NEXT_PUBLIC_API_URL}/apis/saveInfoZaloAPI`,
-                            { // Dữ liệu gửi đi
+                            { 
                                 token: authToken,
                                 profile: data.profile.profile,
                                 session: data.session
@@ -63,21 +85,15 @@ export default function LoginZaloPage() {
 
                         if(response.data.code === 0){
                             setStatusData({ status: 'FAILED', message: 'Thêm tài khoản thành công!' });
-
-                            // Gộp `profile` vào trong `session` để thành một đối tượng account hoàn chỉnh
                             addAccount({ profile: data.profile.profile, ...data.session });
-
-                            // chuyển hướng sang trang danh sách bạn bè
                             setTimeout(() => router.push('/dashboard/listFriendZalo'), 2000);
                         }else{
                             setStatusData({ status: 'FAILED', message: response.data.mess });
-
                             if(response.data.code === 3){
                                 setTimeout(() => router.push('/logout'), 2000);
                             }
                         }
                     } catch (error: any) {
-                        // Bắt lỗi từ axios (bao gồm cả lỗi mạng và lỗi server 4xx/5xx)
                         const errorMessage = error.response?.data?.message || error.message;
                         throw new Error(errorMessage);
                     }
@@ -92,15 +108,14 @@ export default function LoginZaloPage() {
                     clearInterval(intervalId);
                 }
             } catch (error: any) {
-                const errorMessage = error.response?.data?.message || error.message;
-
+                const errorMessage = error.message; // Fetch lỗi thì error.message là chuẩn
                 setStatusData({ status: 'FAILED', message: errorMessage });
                 clearInterval(intervalId);
             }
         }, 3000);
 
         return () => clearInterval(intervalId);
-    }, [sessionId, addAccount, router, startNewSession]);
+    }, [sessionId, addAccount, router, startNewSession, savedProxy]);
 
     const renderContent = () => {
         switch (statusData.status) {
@@ -152,7 +167,7 @@ export default function LoginZaloPage() {
                         <br/>
                         - Nếu mã QR hiện ra, vui lòng dùng Zalo trên điện thoại để quét.
                         <br/>
-                        - Nên sử dụng nick Zalo phụ, chúng tôi không chịu trách nhiệm trong mọi trường hợp nếu nick Zalo của bạn bị khóa.
+                        - <strong>Lưu ý:</strong> nên sử dụng nick Zalo phụ, chúng tôi không chịu trách nhiệm trong mọi trường hợp nếu nick Zalo của bạn bị khóa.
                     </p>
                 </div>
             </div>

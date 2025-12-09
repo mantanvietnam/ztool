@@ -58,7 +58,30 @@ export default function RegisterForm() {
             });
 
             if (response.data.code === 1 && response.data.infoUser.token) {
-                localStorage.setItem('authToken', response.data.infoUser.token);
+                const userInfo = response.data.infoUser;
+                
+                // 1. Lưu Token
+                localStorage.setItem('authToken', userInfo.token);
+
+                // 2. ✨ CẬP NHẬT: Xử lý và lưu Proxy
+                if (userInfo.proxy) {
+                    const proxyData = userInfo.proxy;
+                    // Chuẩn hóa dữ liệu về dạng { host, port, user, pass }
+                    const formattedProxy = {
+                        id: proxyData.id,
+                        host: proxyData.ip,
+                        port: proxyData.port,
+                        user: proxyData.username,
+                        pass: proxyData.password,
+                        protocol: proxyData.protocol,
+                    };
+                    localStorage.setItem('userProxy', JSON.stringify(formattedProxy));
+                    // console.log("Đã lưu proxy khi đăng ký:", formattedProxy.host);
+                } else {
+                    localStorage.removeItem('userProxy');
+                }
+
+                // 3. Chuyển hướng
                 router.push('/dashboard');
             } else {
                 setError(response.data.messages || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin.');

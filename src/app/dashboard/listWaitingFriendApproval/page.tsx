@@ -111,6 +111,9 @@ export default function ListWaitingFriendApprovalPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingCancellationIds, setPendingCancellationIds] = useState<Set<string>>(new Set());
 
+    const savedProxyStr = localStorage.getItem('userProxy');
+    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
     const fetchRequests = useCallback(async (isInitialLoad = false) => {
         if (!selectedAccount) {
             setRequests([]);
@@ -126,7 +129,7 @@ export default function ListWaitingFriendApprovalPage() {
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cookie, imei, userAgent }),
+                body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }),
             });
             const data = await response.json();
             if (!response.ok || !data.success) {
