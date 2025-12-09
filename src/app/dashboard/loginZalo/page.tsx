@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { FiCheckCircle, FiLoader } from 'react-icons/fi';
@@ -12,24 +12,29 @@ export default function LoginZaloPage() {
     const [statusData, setStatusData] = useState<any>({ status: 'INITIALIZING', message: 'Đang khởi tạo phiên...' });
     const [sessionId, setSessionId] = useState<string | null>(null);
     const router = useRouter();
+    
+    // Sử dụng useRef để giữ cờ kiểm tra component đã mount chưa, tránh gọi 2 lần ở React.StrictModel (nếu có)
+    const isMounted = useRef(false);
 
-    const savedProxyStr = localStorage.getItem('userProxy');
-    const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+    // ✨ KHẮC PHỤC: Không đọc localStorage ở đây để tránh tạo object mới mỗi lần render
+    // const savedProxyStr = localStorage.getItem('userProxy'); ... (XÓA DÒNG NÀY)
 
     const startNewSession = useCallback(async () => {
         try {
             setStatusData({ status: 'INITIALIZING', message: 'Đang yêu cầu mã QR mới...' });
             
-            // ✨ THAY ĐỔI: Vẫn dùng fetch, nhưng thêm options để POST proxy
+            // ✨ ĐỌC PROXY Ở TRONG HÀM NÀY
+            const savedProxyStr = localStorage.getItem('userProxy');
+            const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
             const startRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/start-login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ proxy: savedProxy }) // Gửi proxy tại đây
+                body: JSON.stringify({ proxy: savedProxy }) 
             });
             
-            // Giữ nguyên dòng này như code cũ của bạn
             const startData = await startRes.json(); 
 
             if (!startData.success) throw new Error(startData.message);
@@ -37,27 +42,32 @@ export default function LoginZaloPage() {
         } catch (error: any) {
             setStatusData({ status: 'FAILED', message: error.message || 'Không thể bắt đầu phiên đăng nhập.' });
         }
-    }, [savedProxy]); 
+    }, []); // ✨ QUAN TRỌNG: Dependency array để rỗng để hàm này chỉ tạo 1 lần duy nhất
 
     useEffect(() => {
-        startNewSession();
-    }, [startNewSession]);
+        // Chỉ gọi khi chưa có session
+        if (!sessionId) {
+            startNewSession();
+        }
+    }, [startNewSession, sessionId]); // Thêm sessionId vào để đảm bảo không gọi lại nếu đã có
 
     useEffect(() => {
         if (!sessionId) return;
 
         const intervalId = setInterval(async () => {
             try {
-                // ✨ THAY ĐỔI: Vẫn dùng fetch, thêm options POST
-                const statusRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/zalo-status/${sessionId}`, {
+                // ✨ ĐỌC PROXY Ở TRONG INTERVAL
+                const savedProxyStr = localStorage.getItem('userProxy');
+                const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+
+                const statusRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/zalo-status`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ proxy: savedProxy })
+                    body: JSON.stringify({ proxy: savedProxy, sessionId: sessionId })
                 });
 
-                // Giữ nguyên dòng này như code cũ của bạn
                 const data = await statusRes.json();
                 
                 setStatusData(data);
@@ -73,7 +83,6 @@ export default function LoginZaloPage() {
                     }
                     
                     try {
-                        // Đoạn này code gốc bạn dùng axios thì vẫn giữ axios
                         const response = await axios.post(
                             `${process.env.NEXT_PUBLIC_API_URL}/apis/saveInfoZaloAPI`,
                             { 
@@ -108,14 +117,14 @@ export default function LoginZaloPage() {
                     clearInterval(intervalId);
                 }
             } catch (error: any) {
-                const errorMessage = error.message; // Fetch lỗi thì error.message là chuẩn
+                const errorMessage = error.message; 
                 setStatusData({ status: 'FAILED', message: errorMessage });
                 clearInterval(intervalId);
             }
         }, 3000);
 
         return () => clearInterval(intervalId);
-    }, [sessionId, addAccount, router, startNewSession, savedProxy]);
+    }, [sessionId, addAccount, router, startNewSession]); // ✨ Bỏ savedProxy khỏi dependency
 
     const renderContent = () => {
         switch (statusData.status) {
