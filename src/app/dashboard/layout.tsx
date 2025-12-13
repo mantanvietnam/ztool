@@ -147,6 +147,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     text="Cài Đặt"
                     items={[
                         { label: "Thông tin tài khoản", href: "/dashboard/settings" },
+                        { label: "Mã giới thiệu", href: "/dashboard/referral" },
                         { label: "Đổi mật khẩu", href: "/dashboard/settings/password" },
                     ]}
                     />

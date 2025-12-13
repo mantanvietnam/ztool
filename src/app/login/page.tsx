@@ -147,6 +147,7 @@ export default function LoginPage() {
                 // 1. Lưu Token
                 localStorage.setItem('authToken', authToken);
                 localStorage.setItem('authTokenAPI', authTokenAPI);
+                localStorage.setItem('userPhone', userInfo.phone);
 
                 // 2. ✨ CẬP NHẬT: Lưu Proxy (Sử dụng hàm helper)
                 saveProxyToStorage(userInfo);
