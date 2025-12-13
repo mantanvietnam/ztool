@@ -36,8 +36,7 @@ export default function ReferralPage() {
 
     // --- Effect: Lấy thông tin user đăng nhập ---
     useEffect(() => {
-        
-        let phone = localStorage.getItem('userPhone');
+        const phone = localStorage.getItem('userPhone') || '0816560000';
 
         setUserPhone(phone);
         setReferralLink(`https://ztool.ai.vn/register/?aff=${phone}`);
