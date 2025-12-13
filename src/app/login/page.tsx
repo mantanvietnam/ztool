@@ -142,9 +142,11 @@ export default function LoginPage() {
             if (response.data.code === 1 && response.data.infoUser.token) {
                 const userInfo = response.data.infoUser;
                 const authToken = userInfo.token;
+                const authTokenAPI = userInfo.token_api;
 
                 // 1. Lưu Token
                 localStorage.setItem('authToken', authToken);
+                localStorage.setItem('authTokenAPI', authTokenAPI);
 
                 // 2. ✨ CẬP NHẬT: Lưu Proxy (Sử dụng hàm helper)
                 saveProxyToStorage(userInfo);

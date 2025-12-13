@@ -127,7 +127,7 @@ export default function ApiAddFriendDocPage() {
     const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/apis/createRequestAddFriendAPI`;
 
     useEffect(() => {
-        const storedToken = localStorage.getItem('authToken');
+        const storedToken = localStorage.getItem('authTokenAPI');
         if (storedToken) setToken(storedToken);
     }, []);
 

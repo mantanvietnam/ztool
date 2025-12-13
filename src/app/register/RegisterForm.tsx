@@ -62,6 +62,7 @@ export default function RegisterForm() {
                 
                 // 1. Lưu Token
                 localStorage.setItem('authToken', userInfo.token);
+                localStorage.setItem('authTokenAPI', userInfo.token_api);
 
                 // 2. ✨ CẬP NHẬT: Xử lý và lưu Proxy
                 if (userInfo.proxy) {

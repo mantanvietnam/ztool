@@ -100,7 +100,7 @@ export default function ApiAddGroupDocPage() {
     const [endpointCopied, setEndpointCopied] = useState(false);
 
     useEffect(() => {
-        const storedToken = localStorage.getItem('authToken');
+        const storedToken = localStorage.getItem('authTokenAPI');
         if (storedToken) setToken(storedToken);
     }, []);
 
