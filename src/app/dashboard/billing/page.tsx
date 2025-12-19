@@ -12,6 +12,8 @@ interface Package {
     name: string;
     interactions: number;
     price: number;
+    price_old?: number; // Thêm trường giá cũ (optional)
+    percent?: number;   // Thêm trường phần trăm (optional)
     description: string;
     isPopular: boolean;
 }
@@ -119,15 +121,37 @@ const PaymentModal = ({ details, onClose }: { details: TransactionDetails; onClo
 
 // Component cho thẻ gói cước
 const PricingCard = ({ pkg, onSelect, isLoading }: { pkg: Package; onSelect: () => void; isLoading: boolean; }) => (
-    <div className={`bg-gray-800 p-8 rounded-lg border ${pkg.isPopular ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-700'} relative flex flex-col`}>
-        {pkg.isPopular && <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">PHỔ BIẾN NHẤT</div>}
-        <h3 className="text-2xl font-bold text-white text-center">{pkg.name}</h3>
-        <p className="text-center my-4">
+    <div className={`bg-gray-800 p-8 rounded-lg border ${pkg.isPopular ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-700'} relative flex flex-col transform transition-transform hover:scale-105`}>
+        {/* Tag Phổ biến nhất */}
+        {pkg.isPopular && (
+            <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
+                PHỔ BIẾN NHẤT
+            </div>
+        )}
+
+        {/* Tag Giảm giá (Mới) */}
+        {pkg.percent && pkg.percent > 0 && (
+            <div className="absolute top-4 right-4 bg-red-500/10 border border-red-500 text-red-400 text-xs font-bold px-2 py-1 rounded">
+                Giảm {pkg.percent}%
+            </div>
+        )}
+
+        <h3 className="text-2xl font-bold text-white text-center mt-2">{pkg.name}</h3>
+        
+        <div className="text-center my-4">
+            {/* Hiển thị giá cũ gạch ngang (Mới) */}
+            {pkg.price_old && pkg.price_old > pkg.price && (
+                <div className="text-gray-500 text-sm line-through mb-1">
+                    {pkg.price_old.toLocaleString()}đ
+                </div>
+            )}
             <span className="text-4xl font-extrabold text-white">{pkg.price.toLocaleString()}đ</span>
-        </p>
+        </div>
+
         <p className="text-center text-gray-400 text-sm mb-6">{pkg.interactions.toLocaleString()} lượt tương tác</p>
-        <p className="text-gray-300 text-center flex-grow mb-8">{pkg.description}</p>
-        <button onClick={onSelect} disabled={isLoading} className={`mt-auto w-full text-center font-bold py-3 px-4 rounded-md transition duration-300 flex items-center justify-center ${pkg.isPopular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-blue-600 text-white'} disabled:bg-gray-500`}>
+        <p className="text-gray-300 text-center flex-grow mb-8 border-t border-gray-700 pt-4">{pkg.description}</p>
+        
+        <button onClick={onSelect} disabled={isLoading} className={`mt-auto w-full text-center font-bold py-3 px-4 rounded-md transition duration-300 flex items-center justify-center ${pkg.isPopular ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-700 hover:bg-blue-600 text-white'} disabled:bg-gray-500 disabled:cursor-not-allowed`}>
             {isLoading ? <FiLoader className="animate-spin" /> : 'Chọn Gói Này'}
         </button>
     </div>
@@ -140,9 +164,60 @@ export default function BillingPage() {
     const [transaction, setTransaction] = useState<TransactionDetails | null>(null);
 
     const packages: Package[] = [
-        { name: 'Gói 1K', interactions: 1000, price: 200000, description: 'Phù hợp cho các chiến dịch nhỏ hoặc thử nghiệm.', isPopular: false },
-        { name: 'Gói 3K', interactions: 3000, price: 450000, description: 'Gói phổ biến nhất, tiết kiệm chi phí cho các hoạt động thường xuyên.', isPopular: true },
-        { name: 'Gói 5K', interactions: 5000, price: 600000, description: 'Tối ưu cho doanh nghiệp cần tiếp cận lượng lớn khách hàng.', isPopular: false },
+        { 
+            name: 'Gói 1K', 
+            interactions: 1000, 
+            price: 200000, 
+            price_old: 300000, 
+            percent: 40, 
+            description: 'Phù hợp cho các chiến dịch nhỏ hoặc thử nghiệm.', 
+            isPopular: false 
+        },
+        { 
+            name: 'Gói 3K', 
+            interactions: 3000, 
+            price: 510000, 
+            price_old: 600000, // 600k giảm 15% còn 510k
+            percent: 15, 
+            description: 'Gói phổ biến nhất, tiết kiệm chi phí cho các hoạt động thường xuyên.', 
+            isPopular: false 
+        },
+        { 
+            name: 'Gói 5K', 
+            interactions: 5000, 
+            price: 750000, 
+            price_old: 1000000, // 1tr giảm 25% còn 750k
+            percent: 25, 
+            description: 'Tối ưu cho doanh nghiệp nhỏ, chưa có bộ phận marketing riêng.', 
+            isPopular: true 
+        },
+        { 
+            name: 'Gói 10K', 
+            interactions: 10000, 
+            price: 1400000, 
+            price_old: 2000000, // 2tr giảm 30% còn 1tr4
+            percent: 30, 
+            description: 'Phù hợp doanh nghiệp lớn, nhu cầu chăm sóc khách hàng thường xuyên.', 
+            isPopular: false 
+        },
+        { 
+            name: 'Gói 30K', 
+            interactions: 30000, 
+            price: 4000000, 
+            price_old: 6150000, // ~6tr150 giảm 35%
+            percent: 35, 
+            description: 'Gói dành cho các chương trình sự kiện lớn.', 
+            isPopular: false 
+        },
+        { 
+            name: 'Gói 50K', 
+            interactions: 50000, 
+            price: 6000000, 
+            price_old: 10000000, // 10tr giảm 40% còn 6tr
+            percent: 40, 
+            description: 'Phù hợp cho các đơn vị làm dịch vụ marketing.', 
+            isPopular: false 
+        },
     ];
 
     const handleSelectPackage = async (pkg: Package) => {

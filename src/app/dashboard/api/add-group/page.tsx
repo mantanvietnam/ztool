@@ -199,8 +199,8 @@ export default function ApiAddGroupDocPage() {
                                 desc="ID của nhóm Zalo muốn thêm thành viên. (Lấy ID này từ danh sách nhóm)." 
                             />
                             <ParamRow 
-                                name="phones" type="Array<String>" required={true} 
-                                desc="Danh sách số điện thoại cần thêm. Ví dụ: ['091xxxx', '098xxxx']." 
+                                name="phones" type="JSON String" required={true} 
+                                desc={<div><p>Danh sách số điện thoại cần thêm vào nhóm, chú ý sử dụng nháy kép.</p><p className="text-xs text-gray-500 mt-1">VD: <code>["098...", "091..."]</code></p></div>}
                             />
                         </tbody>
                     </table>

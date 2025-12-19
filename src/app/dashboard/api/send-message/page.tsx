@@ -220,7 +220,7 @@ fetch("${apiUrl}", requestOptions)
                                 desc="Nội dung tin nhắn. Hỗ trợ spin {a|b} và biến %name%." 
                             />
                             <ParamRow name="list_request" type="JSON String" required={true} 
-                                desc={<div><p>Chuỗi JSON chứa danh sách người nhận.</p><p className="text-xs text-gray-500 mt-1">VD: <code>JSON.stringify(["098...", "091..."])</code></p></div>} 
+                                desc={<div><p>Chuỗi JSON chứa danh sách người nhận, chú ý sử dụng nháy kép.</p><p className="text-xs text-gray-500 mt-1">VD: <code>["098...", "091..."]</code></p></div>} 
                             />
                             <ParamRow name="files[]" type="Binary" required={false} 
                                 desc="File ảnh đính kèm (Có thể gửi nhiều file cùng key 'files[]'). Tối đa 2MB/file." 

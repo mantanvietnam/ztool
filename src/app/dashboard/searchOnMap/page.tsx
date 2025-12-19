@@ -484,7 +484,7 @@ export default function SearchOnMapPage() {
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
-            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Goong Map (VN)</h1>
+            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Google Map</h1>
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

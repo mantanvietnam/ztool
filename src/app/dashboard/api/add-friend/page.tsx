@@ -243,9 +243,9 @@ export default function ApiAddFriendDocPage() {
                             />
                             <ParamRow 
                                 name="list_request" 
-                                type="Array" 
+                                type="JSON String" 
                                 required={true} 
-                                desc="Danh sách SĐT cần kết bạn. Ví dụ: ['09xxxx', '08xxxx']." 
+                                desc={<div><p>Danh sách SĐT cần kết bạn, chú ý sử dụng nháy kép.</p><p className="text-xs text-gray-500 mt-1">VD: <code>["098...", "091..."]</code></p></div>}
                             />
                             <ParamRow 
                                 name="type" 
