@@ -16,7 +16,7 @@ export default function Header() {
             <div className="flex items-center gap-3 md:gap-4 pl-2">
                 {/* PHẦN ĐIỂM SỐ: Luôn hiển thị (Không có class hidden) */}
                 {user && (
-                    <div className="flex items-center gap-1.5 md:gap-2 bg-gray-700 px-2 md:px-3 py-1.5 rounded-lg whitespace-nowrap">
+                    <div className="hidden md:flex flex items-center gap-1.5 md:gap-2 bg-gray-700 px-2 md:px-3 py-1.5 rounded-lg whitespace-nowrap">
                         <FiStar className="text-yellow-400 shrink-0" />
                         <span className="text-white font-bold text-sm md:text-base">
                             {user.point.toLocaleString()}

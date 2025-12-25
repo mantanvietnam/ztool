@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {
     FiUserPlus, FiMessageSquare, FiUsers, FiMapPin, FiSettings,
     FiLogOut, FiSend, FiLoader, FiUserCheck, FiChevronRight, FiCode, FiTag,
-    FiMenu, FiX, FiCreditCard
+    FiMenu, FiX, FiCreditCard, FiStar
 } from 'react-icons/fi';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -153,7 +153,7 @@ function SidebarDropdown({
 // --- DASHBOARD CONTENT ---
 function DashboardContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { logout } = useAuth();
+    const { logout, user } = useAuth(); // Thêm user để lấy điểm
     
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -265,6 +265,17 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                         </button>
                         <span className="font-bold text-lg text-white">ZTOOL</span>
                     </div>
+
+                    {/* --- MỚI: HIỂN THỊ ĐIỂM SỐ TRÊN MOBILE (Vùng khoanh đỏ) --- */}
+                    {user && (
+                        <div className="flex items-center gap-1.5 bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-600/50">
+                            <FiStar className="text-yellow-400 text-sm" />
+                            <span className="text-white font-bold text-sm">
+                                {user.point.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                    {/* -------------------------------------------------------- */}
                 </div>
 
                 {/* HEADER DESKTOP (Vẫn render nhưng component Header.tsx sẽ tự ẩn nút nạp trên mobile) */}
