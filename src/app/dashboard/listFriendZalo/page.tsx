@@ -5,11 +5,33 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
-// ✨ THÊM MỚI: Import thêm FiPaperclip và FiTrash2
-import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiMoreVertical, FiMessageSquare, FiInfo, FiUserX, FiX, FiSend, FiCheckCircle, FiHelpCircle, FiChevronDown, FiUserPlus as FiMale, FiUserMinus as FiFemale, FiEye, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
+// ✨ THÊM MỚI: Import thêm FiClock
+import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiMoreVertical, FiMessageSquare, FiInfo, FiUserX, FiX, FiSend, FiCheckCircle, FiHelpCircle, FiChevronDown, FiUserPlus as FiMale, FiUserMinus as FiFemale, FiEye, FiCreditCard, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+// --- HELPER FUNCTIONS (MỚI) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
 
 // --- TYPE DEFINITIONS ---
 interface Friend {
@@ -71,17 +93,18 @@ const BulkUnfriendModal = ({ allFriends, onSubmit, onClose, pointCost, currentUs
     );
 };
 
-// COMPONENT: BulkSendMessageModal (Gửi tin nhắn hàng loạt - CÓ FILE)
-const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, currentUserPoints }: { allFriends: Friend[]; onSubmit: (message: string, friendIds: string[], files: File[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
+// COMPONENT: BulkSendMessageModal (Gửi tin nhắn hàng loạt - CÓ FILE & THỜI GIAN)
+const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, currentUserPoints }: { allFriends: Friend[]; onSubmit: (message: string, friendIds: string[], files: File[], timeSend: string) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
     const [showAdvanced, setShowAdvanced] = useState(false);
     
-    // State quản lý file
+    // State quản lý file & Thời gian
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
@@ -96,8 +119,11 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(f => f.userId)));
     const handleDeselectAll = () => setSelectedIds(new Set());
     
-    // Pass thêm files vào submit
-    const handleSubmit = () => onSubmit(message, Array.from(selectedIds), selectedFiles);
+    // ✨ CẬP NHẬT: Pass thêm files và timeSend vào submit
+    const handleSubmit = () => {
+        const formattedTime = formatTimeForApi(sendTime);
+        onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
+    };
 
     // Hàm xử lý chọn file
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +176,23 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
                     <div className="w-full md:w-2/5 border-b md:border-b-0 md:border-r border-gray-700 p-4 flex flex-col space-y-3 overflow-hidden h-1/2 md:h-auto">{/* Filters and Friend List JSX */}<div className="flex-shrink-0 space-y-3"><div className="relative"><FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="text" placeholder="Tìm theo tên hoặc SĐT..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600"/></div><button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm text-blue-400 hover:underline flex items-center gap-1">{showAdvanced ? 'Ẩn bộ lọc nâng cao' : 'Hiện bộ lọc nâng cao'} <FiChevronDown className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /></button>{showAdvanced && (<div className="space-y-3 p-3 bg-gray-900/50 rounded-md animate-fade-in-down"><select value={genderFilter} onChange={e => setGenderFilter(e.target.value as any)} className="w-full bg-gray-700 text-white p-2 rounded-md text-sm"><option value="all">Tất cả giới tính</option><option value="male">Nam</option><option value="female">Nữ</option></select></div>)}</div><hr className="border-gray-600 flex-shrink-0"/><div className="flex justify-between items-center text-sm flex-shrink-0"><p className="text-gray-400">Đã chọn: <span className="font-bold text-white">{selectedIds.size}</span> / {filteredList.length}</p><div className="flex gap-4"><button onClick={handleSelectAll} className="text-blue-400 hover:underline">Chọn tất cả</button><button onClick={handleDeselectAll} className="text-blue-400 hover:underline">Bỏ chọn</button></div></div><div className="flex-grow space-y-2 overflow-y-auto pr-2">{filteredList.map(friend => (<label key={friend.userId} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><input type="checkbox" checked={selectedIds.has(friend.userId)} onChange={() => handleToggleSelect(friend.userId)} className="form-checkbox h-5 w-5 bg-gray-900 border-gray-600 text-blue-500 focus:ring-blue-500"/><Image src={friend.avatar || '/avatar-default-crm.png'} alt={friend.displayName} width={40} height={40} className="rounded-full" onError={(e) => { e.currentTarget.src = '/avatar-default-crm.png'; }}/><span className="text-white truncate">{friend.displayName}</span></label>))}</div></div>
                     <div className="w-full md:w-3/5 p-4 flex flex-col overflow-hidden h-1/2 md:h-auto overflow-y-auto">
-                        <h4 className="font-bold text-white mb-4 flex-shrink-0">Soạn nội dung</h4>
+                        
+                        {/* ✨ CẬP NHẬT: Thêm input chọn thời gian gửi */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                                <FiClock className="text-gray-400 mr-2" />
+                                <input 
+                                    type="datetime-local" 
+                                    value={sendTime}
+                                    onChange={(e) => setSendTime(e.target.value)}
+                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
+                        </div>
+
+                        <h4 className="font-bold text-white mb-2 flex-shrink-0">Soạn nội dung</h4>
                         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                         
                         {/* Khu vực chọn file đính kèm */}
@@ -189,22 +231,23 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
                 </div>
                 <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center flex-shrink-0">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button><button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed"><FiSend/> Gửi ({selectedIds.size})</button></div>
+                    <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button><button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed"><FiSend/> Gửi ({selectedIds.size})</button></div>
                 </div>
             </div>
         </div>
     );
 };
 
-// COMPONENT: SendMessageModal (Gửi tin nhắn đơn lẻ - CÓ FILE)
-const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoints }: { friend: Friend; onClose: () => void; onSend: (message: string, files: File[]) => Promise<void>; pointCost: number; currentUserPoints: number; }) => {
+// COMPONENT: SendMessageModal (Gửi tin nhắn đơn lẻ - CÓ FILE & THỜI GIAN)
+const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoints }: { friend: Friend; onClose: () => void; onSend: (message: string, files: File[], timeSend: string) => Promise<void>; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState('');
     
-    // State quản lý file
+    // State quản lý file & Thời gian
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const hasEnoughPoints = currentUserPoints >= pointCost;
     
@@ -258,14 +301,14 @@ const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoint
     };
 
     const handleSend = async () => {
-        // Kiểm tra nếu không có tin nhắn VÀ không có file thì không gửi
-        if ((!message.trim() && selectedFiles.length === 0) || isSending || !hasEnoughPoints) return;
+        if ((!message.trim() && selectedFiles.length === 0) || isSending || !hasEnoughPoints || !sendTime) return;
         
         setIsSending(true); 
         setError('');
         try { 
-            // Truyền cả message và files
-            await onSend(message, selectedFiles); 
+            // ✨ CẬP NHẬT: Truyền thêm timeSend
+            const formattedTime = formatTimeForApi(sendTime);
+            await onSend(message, selectedFiles, formattedTime); 
         } catch (err: any) { 
             setError(err.message); 
         } finally { 
@@ -277,8 +320,23 @@ const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoint
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div className="flex items-center gap-3"><Image src={friend.avatar} alt={friend.displayName} width={40} height={40} className="rounded-full" /><div><p className="text-sm text-gray-400">Gửi đến:</p><p className="font-semibold text-white">{friend.displayName}</p></div></div>
+                    
+                    {/* ✨ CẬP NHẬT: Thêm input chọn thời gian gửi */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi</label>
+                        <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                            <FiClock className="text-gray-400 mr-2" />
+                            <input 
+                                type="datetime-local" 
+                                value={sendTime}
+                                onChange={(e) => setSendTime(e.target.value)}
+                                className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                            />
+                        </div>
+                    </div>
+
                     <textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`Nhập tin nhắn...`} className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                     
                     {/* Khu vực chọn file */}
@@ -311,7 +369,7 @@ const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoint
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{pointCost.toLocaleString()} điểm</span></div>
                     {/* Disable nút gửi nếu không có nội dung VÀ không có file */}
-                    <button onClick={handleSend} disabled={isSending || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-600">{isSending ? <><FiLoader className="animate-spin"/> Đang gửi...</> : <><FiSend /> Gửi</>}</button>
+                    <button onClick={handleSend} disabled={isSending || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-600">{isSending ? <><FiLoader className="animate-spin"/> Đang gửi...</> : <><FiSend /> Gửi</>}</button>
                 </div>
             </div>
         </div>
@@ -353,8 +411,8 @@ export default function ListFriendZaloPage() {
     const filteredAndSortedFriends = useMemo(() => { return friends .filter(friend => friend.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || (friend.phoneNumber && friend.phoneNumber.includes(searchTerm))) .sort((a, b) => a.displayName.localeCompare(b.displayName)); }, [friends, searchTerm]);
     const toggleMenu = (userId: string) => { setActiveMenu(prev => (prev === userId ? null : userId)); };
 
-    // Xử lý gửi tin nhắn đơn lẻ (Có file)
-    const handleSendMessage = async (message: string, files: File[]) => {
+    // Xử lý gửi tin nhắn đơn lẻ (Có file & Time)
+    const handleSendMessage = async (message: string, files: File[], timeSend: string) => {
         if (!messagingFriend || !selectedAccount || !pointCosts || !user) throw new Error("Thiếu thông tin để gửi tin nhắn.");
         const cost = pointCosts.send_mess_friend || 0;
         
@@ -364,6 +422,9 @@ export default function ListFriendZaloPage() {
         formData.append('userId', selectedAccount.profile.userId);
         formData.append('message', message);
         formData.append('type', 'friend');
+        // ✨ CẬP NHẬT: Gửi timeSend
+        formData.append('timeSend', timeSend);
+        
         // Đóng gói mảng ID thành JSON string (dù chỉ có 1 ID)
         formData.append('list_request', JSON.stringify([messagingFriend.userId])); 
 
@@ -392,8 +453,8 @@ export default function ListFriendZaloPage() {
         setNotification(`Đã tạo yêu cầu gửi tin nhắn đến ${messagingFriend.displayName}`);
     };
 
-    // Xử lý gửi tin hàng loạt (Có file)
-    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[]) => {
+    // Xử lý gửi tin hàng loạt (Có file & Time)
+    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[], timeSend: string) => {
         if (!selectedAccount || !pointCosts || !user) { alert("Vui lòng chọn tài khoản."); return; }
         const cost = (pointCosts.send_mess_friend || 0) * recipientIds.length;
         
@@ -407,6 +468,10 @@ export default function ListFriendZaloPage() {
             formData.append('userId', selectedAccount.profile.userId);
             formData.append('message', message);
             formData.append('type', 'friend');
+            
+            // ✨ CẬP NHẬT: Gửi timeSend
+            formData.append('timeSend', timeSend);
+            
             formData.append('list_request', JSON.stringify(recipientIds)); // Đóng gói mảng ID thành JSON string
 
             // Append files

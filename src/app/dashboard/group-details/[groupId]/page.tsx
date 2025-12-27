@@ -7,9 +7,31 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import Link from 'next/link';
-// Import đầy đủ icon cần thiết
-import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare } from 'react-icons/fi';
+// ✨ CẬP NHẬT: Thêm FiClock vào import
+import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock } from 'react-icons/fi';
 import axios from 'axios';
+
+// --- HELPER FUNCTIONS (MỚI - GIỐNG TRANG GỬI NGƯỜI LẠ) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
 
 // --- TYPE DEFINITIONS ---
 interface Member {
@@ -44,12 +66,15 @@ interface TargetGroup {
 
 // --- COMPONENTS ---
 
-// 1. POPUP GỬI TIN NHẮN
-const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, currentUserPoints }: { allMembers: Member[]; onSubmit: (message: string, memberIds: string[], files: File[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
+// 1. POPUP GỬI TIN NHẮN (ĐÃ CẬP NHẬT THÊM THỜI GIAN)
+const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, currentUserPoints }: { allMembers: Member[]; onSubmit: (message: string, memberIds: string[], files: File[], timeSend: string) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     
+    // ✨ CẬP NHẬT: State cho thời gian gửi
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+
     // File upload state
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
@@ -71,7 +96,12 @@ const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, curren
     const handleToggleSelect = (memberId: string) => { const newSelectedIds = new Set(selectedIds); newSelectedIds.has(memberId) ? newSelectedIds.delete(memberId) : newSelectedIds.add(memberId); setSelectedIds(newSelectedIds); };
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(m => m.userId)));
     const handleDeselectAll = () => setSelectedIds(new Set());
-    const handleSubmit = () => onSubmit(message, Array.from(selectedIds), selectedFiles);
+    
+    // ✨ CẬP NHẬT: Handle Submit truyền thêm timeSend
+    const handleSubmit = () => {
+        const formattedTime = formatTimeForApi(sendTime);
+        onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
+    };
     
     // Xử lý file
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +144,23 @@ const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, curren
                     </div>
                     {/* Cột phải: Form nhập liệu */}
                     <div className="w-full md:w-3/5 p-4 flex flex-col overflow-y-auto">
-                        <h4 className="font-bold text-white mb-4">Soạn nội dung</h4>
+                        
+                        {/* ✨ CẬP NHẬT: Input chọn thời gian */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                                <FiClock className="text-gray-400 mr-2" />
+                                <input 
+                                    type="datetime-local" 
+                                    value={sendTime}
+                                    onChange={(e) => setSendTime(e.target.value)}
+                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
+                        </div>
+
+                        <h4 className="font-bold text-white mb-2">Soạn nội dung</h4>
                         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                         
                         <div className="mt-3">
@@ -129,14 +175,14 @@ const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, curren
                         <div className="mt-auto p-3 bg-gray-900/50 rounded-md text-sm text-gray-400 mt-4">
                             <p className="font-bold text-gray-300 flex items-center gap-2"><FiHelpCircle/> Cú pháp Spin</p>
                             <p>Dùng <code className="bg-gray-700 px-1 rounded">{`{a|b|c}`}</code> để random nội dung.</p>
-                            <p>Dùng <code className="bg-gray-700 px-1 rounded">%name%</code> để chèn tên.</p>
+                            <p>Dùng các biến sau: <code className="bg-gray-700 px-1 rounded">%name%</code>, <code className="bg-gray-700 px-1 rounded">%phone%</code>, <code className="bg-gray-700 px-1 rounded">%gender%</code>, <code className="bg-gray-700 px-1 rounded">%birthday%</code> để cá nhân hóa.</p>
                         </div>
                     </div>
                 </div>
                 <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center flex-shrink-0">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
                     <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button>
-                    <button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600"> <FiSend/> Gửi ({selectedIds.size})</button></div>
+                    <button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600"> <FiSend/> Gửi ({selectedIds.size})</button></div>
                 </div>
             </div>
         </div>
@@ -378,8 +424,8 @@ export default function GroupDetailsPage() {
         fetchDetails();
     }, [groupId, selectedAccount]);
 
-    // 1. GỬI TIN NHẮN (API)
-    const handleBulkSendSubmit = async (message: string, memberIds: string[], files: File[]) => {
+    // 1. GỬI TIN NHẮN (API) - ✨ CẬP NHẬT: THÊM THAM SỐ timeSend
+    const handleBulkSendSubmit = async (message: string, memberIds: string[], files: File[], timeSend: string) => {
         if (!selectedAccount || !user || !pointCosts) return;
         const totalCost = memberIds.length * (pointCosts.send_mess_friend || 0);
         if (user.point < totalCost) { alert("Không đủ điểm."); return; }
@@ -392,6 +438,9 @@ export default function GroupDetailsPage() {
             formData.append('message', message);
             formData.append('type', 'friend');
             formData.append('list_request', JSON.stringify(memberIds));
+            // ✨ CẬP NHẬT: Gửi thời gian lên server
+            formData.append('timeSend', timeSend);
+            
             files.forEach(f => formData.append('files[]', f));
             
             const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/createRequestSendMessageAPI`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });

@@ -7,9 +7,31 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { 
     FiArrowLeft, FiLoader, FiUser, FiSearch, FiPlus, FiX, 
     FiCheckCircle, FiCheck, FiUsers, FiMoreVertical, FiTrash2,
-    FiMessageSquare, FiPaperclip, FiSend, FiChevronDown, FiHelpCircle
+    FiMessageSquare, FiPaperclip, FiSend, FiChevronDown, FiHelpCircle, FiClock
 } from 'react-icons/fi';
 import axios from 'axios';
+
+// --- HELPER FUNCTIONS (MỚI) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
 
 // --- INTERFACES ---
 
@@ -159,7 +181,7 @@ const AddMemberModal = ({
     );
 };
 
-// Modal Gửi Tin Nhắn Hàng Loạt (Cho thành viên trong Tag)
+// Modal Gửi Tin Nhắn Hàng Loạt (Cho thành viên trong Tag - CÓ FILE & THỜI GIAN)
 const BulkSendMessageTagModal = ({ 
     members, 
     onClose, 
@@ -167,7 +189,7 @@ const BulkSendMessageTagModal = ({
 }: { 
     members: TagMember[]; 
     onClose: () => void; 
-    onSubmit: (message: string, recipientIds: string[], files: File[]) => Promise<void>; 
+    onSubmit: (message: string, recipientIds: string[], files: File[], timeSend: string) => Promise<void>; 
 }) => {
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(members.map(m => m.zalo_uid_friend))); // Mặc định chọn tất cả
@@ -175,6 +197,9 @@ const BulkSendMessageTagModal = ({
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
     const [isSending, setIsSending] = useState(false);
+
+    // ✨ CẬP NHẬT: State cho thời gian gửi
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const MAX_FILES = 10;
     const MAX_SIZE_MB = 2;
@@ -233,10 +258,12 @@ const BulkSendMessageTagModal = ({
 
     const handleSend = async () => {
         if (selectedIds.size === 0) return;
-        if (!message.trim() && selectedFiles.length === 0) return;
+        if ((!message.trim() && selectedFiles.length === 0) || !sendTime) return;
 
         setIsSending(true);
-        await onSubmit(message, Array.from(selectedIds), selectedFiles);
+        // ✨ CẬP NHẬT: Format thời gian
+        const formattedTime = formatTimeForApi(sendTime);
+        await onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
         setIsSending(false);
     };
 
@@ -278,6 +305,22 @@ const BulkSendMessageTagModal = ({
 
                     {/* Cột Phải: Soạn tin nhắn */}
                     <div className="w-full md:w-3/5 p-4 flex flex-col overflow-hidden h-1/2 md:h-auto overflow-y-auto bg-gray-800">
+                        
+                        {/* ✨ CẬP NHẬT: Input chọn thời gian gửi */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                                <FiClock className="text-gray-400 mr-2" />
+                                <input 
+                                    type="datetime-local" 
+                                    value={sendTime}
+                                    onChange={(e) => setSendTime(e.target.value)}
+                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
+                        </div>
+
                         <h4 className="font-bold text-white mb-4 shrink-0">Soạn nội dung</h4>
                         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                         
@@ -309,7 +352,7 @@ const BulkSendMessageTagModal = ({
 
                 <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md text-sm font-medium">Hủy</button>
-                    <button onClick={handleSend} disabled={isSending || (!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button onClick={handleSend} disabled={isSending || (!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
                         {isSending ? <FiLoader className="animate-spin"/> : <FiSend />} Gửi tin nhắn ({selectedIds.size})
                     </button>
                 </div>
@@ -435,8 +478,8 @@ export default function TagDetailPage() {
         }
     };
 
-    // Xử lý Gửi tin nhắn hàng loạt
-    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[]) => {
+    // Xử lý Gửi tin nhắn hàng loạt - ✨ CẬP NHẬT: Thêm tham số timeSend
+    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[], timeSend: string) => {
         if (!selectedAccount) return;
 
         try {
@@ -449,6 +492,10 @@ export default function TagDetailPage() {
             formData.append('userId', selectedAccount.profile.userId);
             formData.append('message', message);
             formData.append('type', 'friend'); // Gửi cho bạn bè
+            
+            // ✨ CẬP NHẬT: Gửi thời gian lên API
+            formData.append('timeSend', timeSend);
+            
             formData.append('list_request', JSON.stringify(recipientIds)); // List UID
 
             // Append files

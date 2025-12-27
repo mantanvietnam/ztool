@@ -6,10 +6,32 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import Link from 'next/link';
-// ✨ THÊM MỚI: Import thêm FiPaperclip và FiTrash2
-import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiSliders, FiShield, FiX, FiGrid, FiUserCheck, FiMessageSquare, FiSend, FiHelpCircle, FiChevronDown, FiEye, FiCheckCircle, FiUserPlus, FiLink, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
+// ✨ THÊM MỚI: Import thêm FiClock
+import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiSliders, FiShield, FiX, FiGrid, FiUserCheck, FiMessageSquare, FiSend, FiHelpCircle, FiChevronDown, FiEye, FiCheckCircle, FiUserPlus, FiLink, FiCreditCard, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+
+// --- HELPER FUNCTIONS (MỚI) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
 
 // --- TYPE DEFINITIONS ---
 interface ZaloGroup {
@@ -73,8 +95,8 @@ const StatsCard = ({ icon, title, value, color }: { icon: React.ReactNode; title
     </div>
 );
 
-// CẬP NHẬT HOÀN CHỈNH: Popup gửi tin nhắn hàng loạt (CÓ FILE)
-const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, pointCost, currentUserPoints }: { allGroups: ZaloGroup[]; selectedAccount: any; onSubmit: (message: string, groupIds: string[], files: File[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
+// CẬP NHẬT HOÀN CHỈNH: Popup gửi tin nhắn hàng loạt (CÓ FILE & CÓ THỜI GIAN)
+const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, pointCost, currentUserPoints }: { allGroups: ZaloGroup[]; selectedAccount: any; onSubmit: (message: string, groupIds: string[], files: File[], timeSend: string) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
@@ -84,9 +106,10 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
     const [typeFilter, setTypeFilter] = useState<'all' | 'community' | 'normal'>('all');
     const [showAdvanced, setShowAdvanced] = useState(false);
 
-    // ✨ THÊM MỚI: State quản lý file
+    // ✨ THÊM MỚI: State quản lý file & Thời gian
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
@@ -101,8 +124,11 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(g => g.id)));
     const handleDeselectAll = () => setSelectedIds(new Set());
     
-    // ✨ CẬP NHẬT: Pass thêm files vào submit
-    const handleSubmit = () => onSubmit(message, Array.from(selectedIds), selectedFiles);
+    // ✨ CẬP NHẬT: Pass thêm files và timeSend vào submit
+    const handleSubmit = () => {
+        const formattedTime = formatTimeForApi(sendTime);
+        onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
+    };
 
     // ✨ THÊM MỚI: Hàm xử lý chọn file
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +181,23 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
                 <div className="flex-grow flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
                     <div className="w-full md:w-2/5 border-b md:border-b-0 md:border-r border-gray-700 p-4 flex flex-col space-y-3 overflow-hidden h-1/2 md:h-auto"><div className="flex-shrink-0 space-y-3"><div className="relative"><FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="text" placeholder="Tìm kiếm nhóm theo tên..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600"/></div><button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm text-blue-400 hover:underline flex items-center gap-1">{showAdvanced ? 'Ẩn bộ lọc nâng cao' : 'Hiện bộ lọc nâng cao'} <FiChevronDown className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /></button>{showAdvanced && (<div className="space-y-3 p-3 bg-gray-900/50 rounded-md animate-fade-in-down"><div className="flex items-center gap-2"><input type="number" placeholder="Tối thiểu TV" value={minMembers} onChange={e => setMinMembers(e.target.value)} className="w-1/2 bg-gray-700 text-white p-2 rounded-md text-sm" /><span>-</span><input type="number" placeholder="Tối đa TV" value={maxMembers} onChange={e => setMaxMembers(e.target.value)} className="w-1/2 bg-gray-700 text-white p-2 rounded-md text-sm" /></div><select value={roleFilter} onChange={e => setRoleFilter(e.target.value as any)} className="w-full bg-gray-700 text-white p-2 rounded-md text-sm"><option value="all">Tất cả vai trò</option><option value="admin">Nhóm tôi quản lý</option><option value="member">Nhóm tôi tham gia</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} className="w-full bg-gray-700 text-white p-2 rounded-md text-sm"><option value="all">Tất cả loại nhóm</option><option value="community">Nhóm cộng đồng</option><option value="normal">Nhóm thường</option></select></div>)}</div><hr className="border-gray-600 flex-shrink-0"/><div className="flex justify-between items-center text-sm flex-shrink-0"><p className="text-gray-400">Đã chọn: <span className="font-bold text-white">{selectedIds.size}</span> / {filteredList.length}</p><div className="flex gap-4"><button onClick={handleSelectAll} className="text-blue-400 hover:underline">Chọn tất cả</button><button onClick={handleDeselectAll} className="text-blue-400 hover:underline">Bỏ chọn</button></div></div><div className="flex-grow space-y-2 overflow-y-auto pr-2">{filteredList.map(group => (<label key={group.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><input type="checkbox" checked={selectedIds.has(group.id)} onChange={() => handleToggleSelect(group.id)} className="form-checkbox h-5 w-5 bg-gray-900 border-gray-600 text-blue-500"/><Image src={group.avatar || '/avatar-default-crm.png'} alt={group.name} width={40} height={40} className="rounded-full" onError={(e) => { e.currentTarget.src = '/avatar-default-crm.png'; }}/><span className="text-white truncate">{group.name}</span></label>))}</div></div>
                     <div className="w-full md:w-3/5 p-4 flex flex-col overflow-hidden h-1/2 md:h-auto overflow-y-auto">
-                        <h4 className="font-bold text-white mb-4 flex-shrink-0">Soạn nội dung</h4>
+                        
+                         {/* ✨ CẬP NHẬT: Thêm input chọn thời gian gửi */}
+                         <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                                <FiClock className="text-gray-400 mr-2" />
+                                <input 
+                                    type="datetime-local" 
+                                    value={sendTime}
+                                    onChange={(e) => setSendTime(e.target.value)}
+                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
+                        </div>
+
+                        <h4 className="font-bold text-white mb-2 flex-shrink-0">Soạn nội dung</h4>
                         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                         
                         {/* ✨ THÊM MỚI: Khu vực chọn file đính kèm */}
@@ -198,8 +240,8 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
                 <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center flex-shrink-0">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
                     <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button>
-                    {/* ✨ CẬP NHẬT: Disable logic: Phải có (Message hoặc File) VÀ (Có người nhận) VÀ (Đủ điểm) */}
-                    <button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed"><FiSend/> Gửi ({selectedIds.size})</button></div>
+                    {/* ✨ CẬP NHẬT: Disable logic: Phải có (Message hoặc File) VÀ (Có người nhận) VÀ (Đủ điểm) VÀ (Có thời gian) */}
+                    <button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed"><FiSend/> Gửi ({selectedIds.size})</button></div>
                 </div>
             </div>
         </div>
@@ -257,8 +299,8 @@ export default function ListGroupZaloPage() {
     const filteredGroups = useMemo(() => { if (!isClient || !selectedAccount) return []; return groups.filter(group => { if (searchTerm && group.name && !group.name.toLowerCase().includes(searchTerm.toLowerCase())) return false; const min = parseInt(minMembers, 10); const max = parseInt(maxMembers, 10); if (!isNaN(min) && group.totalMembers < min) return false; if (!isNaN(max) && group.totalMembers > max) return false; const isAdmin = Array.isArray(group.admins) && group.admins.includes(selectedAccount.profile.userId); if (roleFilter === 'admin' && !isAdmin) return false; if (roleFilter === 'member' && isAdmin) return false; if (typeFilter === 'community' && !group.isCommunity) return false; if (typeFilter === 'normal' && group.isCommunity) return false; return true; }).sort((a, b) => (a.name || '').localeCompare(b.name || '')); }, [groups, searchTerm, minMembers, maxMembers, roleFilter, typeFilter, selectedAccount, isClient]);
     const handleNavigateToGroupDetails = (identifier: string) => { const encodedIdentifier = encodeURIComponent(identifier); router.push(`/dashboard/group-details/${encodedIdentifier}`); };
 
-    // ✨ CẬP NHẬT: Hàm submit xử lý FormData để gửi file
-    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[]) => {
+    // ✨ CẬP NHẬT: Hàm submit xử lý FormData để gửi file VÀ timeSend
+    const handleBulkSendSubmit = async (message: string, recipientIds: string[], files: File[], timeSend: string) => {
         if (!selectedAccount || !pointCosts || !user) {
             alert("Vui lòng chọn tài khoản và đảm bảo thông tin điểm đã được tải.");
             return;
@@ -278,6 +320,10 @@ export default function ListGroupZaloPage() {
             formData.append('userId', selectedAccount.profile.userId);
             formData.append('message', message);
             formData.append('type', 'group'); // Đánh dấu là gửi nhóm
+            
+            // ✨ CẬP NHẬT: Gửi timeSend
+            formData.append('timeSend', timeSend);
+            
             formData.append('list_request', JSON.stringify(recipientIds)); // Đóng gói mảng ID
 
             // Append files

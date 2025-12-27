@@ -9,6 +9,28 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 
+// --- HELPER FUNCTIONS (MỚI) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
+
 // --- CÁC COMPONENT CON ---
 
 interface SendMessageJob {
@@ -58,7 +80,7 @@ const SuccessNotification = ({ message, onClose }: { message: string; onClose: (
 
 interface CreateMessageModalProps {
     onClose: () => void;
-    onSubmit: (message: string, phones: string[], files: File[]) => Promise<void>;
+    onSubmit: (message: string, phones: string[], files: File[], timeSend: string) => Promise<void>;
     pointCost: number;
     currentUserPoints: number;
 }
@@ -73,6 +95,9 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
     const [phoneCount, setPhoneCount] = useState(0);
     const [calculatedCost, setCalculatedCost] = useState(0);
     const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
+    
+    // State cho thời gian gửi, mặc định là hiện tại
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
@@ -150,6 +175,11 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
             return;
         }
 
+        if (!sendTime) {
+            setError("Vui lòng chọn thời gian gửi.");
+            return;
+        }
+
         if (!hasEnoughPoints) {
             setIsPointsModalOpen(true);
             return;
@@ -162,7 +192,11 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
             if (cleanedPhones.length === 0) {
                 throw new Error("Danh sách số điện thoại không hợp lệ.");
             }
-            await onSubmit(message, cleanedPhones, selectedFiles);
+
+            // Format thời gian trước khi submit
+            const formattedTime = formatTimeForApi(sendTime);
+            
+            await onSubmit(message, cleanedPhones, selectedFiles, formattedTime);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -183,6 +217,22 @@ const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPo
                 <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
                     <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Tạo yêu cầu gửi tin nhắn</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
                     <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                        
+                        {/* Khu vực chọn thời gian gửi */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                                <FiClock className="text-gray-400 mr-2" />
+                                <input 
+                                    type="datetime-local" 
+                                    value={sendTime}
+                                    onChange={(e) => setSendTime(e.target.value)}
+                                    className="w-full bg-transparent text-white py-3 focus:outline-none placeholder-gray-500"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">* Mặc định là gửi ngay lập tức (thời gian hiện tại).</p>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Nội dung tin nhắn</label>
                             <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
@@ -274,7 +324,7 @@ export default function ListSendMessageStrangerPage() {
     useEffect(() => { const fetchPendingRequests = async () => { if (!selectedAccount) { setStats(prev => ({ ...prev, pending: 0 })); return; } setLoadingPendingCount(true); try { const { cookie, imei, userAgent } = selectedAccount; const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, { cookie, imei, userAgent, proxy: savedProxy  }); if (response.data.success) { setStats(prev => ({ ...prev, pending: Object.keys(response.data.requests).length })); } } catch (error) { console.error("Lỗi khi lấy số lượng yêu cầu đang chờ:", error); } finally { setLoadingPendingCount(false); } }; fetchPendingRequests(); }, [selectedAccount]);
     const handleUpdateStatus = async (jobId: string | number, status: 'cancel' | 'pause' | 'process') => { if (status === 'cancel') { if (!confirm(`Bạn có chắc chắn muốn Hủy bỏ công việc #${jobId} không?`)) { return; } } setUpdatingJobId(jobId); const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; } try { const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/updateStatusRequestSendMessageAPI`, { token: token, id: jobId, status: status }); const data = response.data; if (data.code === 0) { setNotification(data.mess || "Cập nhật trạng thái thành công!"); const currentPage = parseInt(searchParams.get('page') || '1', 10); await fetchData(currentPage); } else if (data.code === 3) { router.push('/logout'); } else { throw new Error(data.mess || "Cập nhật thất bại."); } } catch (err: any) { setNotification(`Lỗi: ${err.response?.data?.mess || err.message}`); } finally { setUpdatingJobId(null); } };
 
-    const handleCreateMessageRequest = async (message: string, phoneNumbers: string[], files: File[]) => {
+    const handleCreateMessageRequest = async (message: string, phoneNumbers: string[], files: File[], timeSend: string) => {
         const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; }
         if (!selectedAccount) { throw new Error("Vui lòng chọn một tài khoản Zalo để thực hiện."); }
         if (!pointCosts || !user) { throw new Error("Không thể xác định chi phí hoặc thông tin người dùng."); }
@@ -288,6 +338,7 @@ export default function ListSendMessageStrangerPage() {
             formData.append('userId', selectedAccount.profile.userId);
             formData.append('message', message);
             formData.append('type', 'stranger');
+            formData.append('timeSend', timeSend); // Gửi thời gian đã format
             formData.append('list_request', JSON.stringify(phoneNumbers));
 
             if (files.length > 0) {

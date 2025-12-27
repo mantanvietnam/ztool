@@ -5,10 +5,33 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2 } from 'react-icons/fi';
+// ✨ CẬP NHẬT: Thêm FiClock vào import
+import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import axios from 'axios';
+
+// --- HELPER FUNCTIONS (MỚI) ---
+
+// Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
+const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    const localISOTime = (new Date(now.getTime() - offsetMs)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+// Format thời gian từ input sang định dạng API yêu cầu (H:i d/m/Y)
+const formatTimeForApi = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${h}:${m} ${d}/${month}/${y}`;
+};
 
 // --- TYPE DEFINITIONS ---
 interface PlaceResult {
@@ -87,11 +110,16 @@ const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints
     );
 };
 
-const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[]) => void; pointCost: number; currentUserPoints: number; }) => {
+// ✨ CẬP NHẬT: Modal gửi tin nhắn có thêm phần chọn thời gian
+const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[], timeSend: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
+    
+    // ✨ CẬP NHẬT: State cho thời gian gửi
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+
     const MAX_FILES = 10;
     const MAX_SIZE_MB = 2;
     const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
@@ -125,9 +153,13 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
     };
 
     const handleSubmit = async () => {
-        if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints) return;
+        if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints || !sendTime) return;
         setIsSubmitting(true);
-        await onSubmit(message, selectedFiles);
+        
+        // ✨ CẬP NHẬT: Format thời gian trước khi gửi
+        const formattedTime = formatTimeForApi(sendTime);
+        await onSubmit(message, selectedFiles, formattedTime);
+        
         setIsSubmitting(false);
     };
 
@@ -135,9 +167,29 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn hàng loạt</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
-                    <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    
+                    {/* ✨ CẬP NHẬT: Input chọn thời gian gửi */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
+                        <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
+                            <FiClock className="text-gray-400 mr-2" />
+                            <input 
+                                type="datetime-local" 
+                                value={sendTime}
+                                onChange={(e) => setSendTime(e.target.value)}
+                                className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Nội dung</label>
+                        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+
                     <div className="mt-2">
                         <input type="file" multiple accept="image/*" id="file-upload-map" className="hidden" onChange={handleFileChange} />
                         <label htmlFor="file-upload-map" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
@@ -160,7 +212,7 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
                 </div>
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <button onClick={handleSubmit} disabled={isSubmitting || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
                 </div>
             </div>
         </div>
@@ -417,7 +469,8 @@ export default function SearchOnMapPage() {
     };
 
     // Xử lý hành động: Tin nhắn, Kết bạn, Thêm nhóm
-    const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup', files: File[] = []) => {
+    // ✨ CẬP NHẬT: Thêm tham số timeSend (mặc định là chuỗi rỗng)
+    const handleSubmitAction = async (messageOrGroupId: string, actionType: 'message' | 'addFriend' | 'addToGroup', files: File[] = [], timeSend: string = '') => {
         if (!selectedAccount) { setError("Vui lòng chọn tài khoản Zalo để thực hiện."); return; }
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         
@@ -445,6 +498,8 @@ export default function SearchOnMapPage() {
                 formData.append('userId', selectedAccount.profile.userId);
                 formData.append('message', messageOrGroupId);
                 formData.append('type', 'stranger');
+                // ✨ CẬP NHẬT: Gửi thời gian gửi lên API
+                formData.append('timeSend', timeSend);
                 formData.append('list_request', JSON.stringify(listRequest));
 
                 if (files && files.length > 0) {
@@ -480,7 +535,9 @@ export default function SearchOnMapPage() {
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files) => handleSubmitAction(msg, 'message', files)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
+            {/* ✨ CẬP NHẬT: Truyền onSubmit với tham số timeSend */}
+            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files, timeSend) => handleSubmitAction(msg, 'message', files, timeSend)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
+            
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
