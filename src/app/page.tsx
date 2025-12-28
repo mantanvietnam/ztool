@@ -27,11 +27,11 @@ const homepagePackages: Package[] = [
         isPopular: false 
     },
     { 
-        name: 'Gói 3K', 
+        name: 'Gói 2K', 
         interactions: 3000, 
-        price: 510000, 
+        price: 500000, 
         price_old: 600000, 
-        percent: 15, 
+        percent: 16, 
         isPopular: false 
     },
     { 

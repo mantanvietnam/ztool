@@ -174,12 +174,12 @@ export default function BillingPage() {
             isPopular: false 
         },
         { 
-            name: 'Gói 3K', 
-            interactions: 3000, 
-            price: 510000, 
+            name: 'Gói 2K', 
+            interactions: 2000, 
+            price: 500000, 
             price_old: 600000, // 600k giảm 15% còn 510k
-            percent: 15, 
-            description: 'Gói phổ biến nhất, tiết kiệm chi phí cho các hoạt động thường xuyên.', 
+            percent: 16, 
+            description: 'Tiết kiệm chi phí cho các hoạt động thường xuyên.', 
             isPopular: false 
         },
         { 
@@ -188,7 +188,7 @@ export default function BillingPage() {
             price: 750000, 
             price_old: 1000000, // 1tr giảm 25% còn 750k
             percent: 25, 
-            description: 'Tối ưu cho doanh nghiệp nhỏ, chưa có bộ phận marketing riêng.', 
+            description: 'Gói phổ biến nhất, tối ưu cho doanh nghiệp nhỏ, chưa có bộ phận marketing riêng.', 
             isPopular: true 
         },
         { 
