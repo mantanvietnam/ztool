@@ -28,7 +28,7 @@ const homepagePackages: Package[] = [
     },
     { 
         name: 'Gói 2K', 
-        interactions: 3000, 
+        interactions: 2000, 
         price: 500000, 
         price_old: 600000, 
         percent: 16, 
