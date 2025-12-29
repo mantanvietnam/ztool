@@ -225,6 +225,10 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
     const [selectedGroupId, setSelectedGroupId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // ✨ MỚI: State cho từ khóa tìm kiếm nhóm
+    const [searchTerm, setSearchTerm] = useState('');
+
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
@@ -253,21 +257,85 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
         setIsSubmitting(false);
     };
 
+    // ✨ MỚI: Lọc nhóm theo từ khóa
+    const filteredGroups = groups.filter(group => 
+        group.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Thêm vào nhóm</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
+                
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Chọn nhóm để thêm <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
-                    <select value={selectedGroupId} onChange={e => setSelectedGroupId(e.target.value)} disabled={isLoading} className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">{isLoading ? 'Đang tải nhóm...' : '-- Chọn một nhóm --'}</option>
-                        {groups.map(group => <option key={group.id} value={group.id}>{group.name} ({group.totalMembers} TV)</option>)}
-                    </select>
+                    
+                    {/* ✨ MỚI: Giao diện chọn nhóm có tìm kiếm */}
+                    <div className="border border-gray-600 rounded-md overflow-hidden bg-gray-900/50">
+                        {/* Thanh tìm kiếm */}
+                        <div className="p-2 border-b border-gray-600 bg-gray-700/50 relative">
+                            <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Nhập tên nhóm để tìm..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-gray-800 text-white pl-9 pr-3 py-2 rounded-md border border-gray-600 focus:outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
+
+                        {/* Danh sách nhóm cuộn */}
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                            {isLoading ? (
+                                <div className="p-6 text-center text-gray-400 flex flex-col items-center justify-center gap-2">
+                                    <FiLoader className="animate-spin text-2xl" /> <span>Đang tải danh sách nhóm...</span>
+                                </div>
+                            ) : filteredGroups.length === 0 ? (
+                                <div className="p-6 text-center text-gray-500 italic">
+                                    {searchTerm ? 'Không tìm thấy nhóm nào phù hợp.' : 'Không có nhóm nào.'}
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-700">
+                                    {filteredGroups.map(group => (
+                                        <div
+                                            key={group.id}
+                                            onClick={() => setSelectedGroupId(group.id)}
+                                            className={`p-3 cursor-pointer flex items-center gap-3 transition-colors ${selectedGroupId === group.id ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'hover:bg-gray-700 border-l-4 border-transparent'}`}
+                                        >
+                                            {/* Avatar nhóm */}
+                                            <div className="w-10 h-10 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-gray-600">
+                                                {group.avatar && group.avatar !== '0' ? (
+                                                    <img src={group.avatar} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500"><FiUsers /></div>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Thông tin nhóm */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium truncate ${selectedGroupId === group.id ? 'text-blue-300' : 'text-gray-200'}`}>
+                                                    {group.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {group.totalMembers} thành viên
+                                                </p>
+                                            </div>
+                                            
+                                            {/* Icon check khi chọn */}
+                                            {selectedGroupId === group.id && <FiCheckCircle className="text-blue-500 flex-shrink-0" />}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
                 </div>
+                
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
                     <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <button onClick={handleSubmit} disabled={isSubmitting || !selectedGroupId || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Gửi yêu cầu</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !selectedGroupId || !hasEnoughPoints} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Thêm vào nhóm</button>
                 </div>
             </div>
         </div>

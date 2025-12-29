@@ -291,10 +291,15 @@ const AddMemberModal = ({ onSubmit, onClose, pointCost, currentUserPoints }: { o
 };
 
 // 4. POPUP MỜI NHÓM
+// 4. POPUP MỜI NHÓM (CẬP NHẬT UI CHỌN NHÓM)
 const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSubmit, onClose, pointCost, currentUserPoints }: { currentGroupId: string; allMembers: Member[]; selectedAccount: any; onSubmit: (targetGroupId: string, memberIds: string[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // ✨ MỚI: State tìm kiếm nhóm
+    const [groupSearchTerm, setGroupSearchTerm] = useState('');
     const [targetGroupId, setTargetGroupId] = useState('');
+    
     const [availableGroups, setAvailableGroups] = useState<TargetGroup[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
 
@@ -310,6 +315,7 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
                 if (response.data.success && response.data.groups) {
                     const otherGroups = response.data.groups.filter((g: any) => g.id !== currentGroupId);
                     setAvailableGroups(otherGroups);
+                    // Mặc định chọn nhóm đầu tiên nếu có
                     if (otherGroups.length > 0) setTargetGroupId(otherGroups[0].id);
                 }
             } catch (err) { console.error(err); } finally { setLoadingGroups(false); }
@@ -320,7 +326,12 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    // Filter thành viên (Cột trái)
     const filteredList = useMemo(() => allMembers.filter(m => !searchTerm || m.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || m.phoneNumber?.includes(searchTerm)), [allMembers, searchTerm]);
+    
+    // ✨ MỚI: Filter nhóm (Cột phải)
+    const filteredGroups = useMemo(() => availableGroups.filter(g => !groupSearchTerm || g.name.toLowerCase().includes(groupSearchTerm.toLowerCase())), [availableGroups, groupSearchTerm]);
+
     const handleToggleSelect = (id: string) => { const newSet = new Set(selectedIds); newSet.has(id) ? newSet.delete(id) : newSet.add(id); setSelectedIds(newSet); };
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(m => m.userId)));
     const handleDeselectAll = () => setSelectedIds(new Set());
@@ -330,6 +341,7 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl flex flex-col h-[85vh]" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center"><h3 className="font-bold text-white text-lg">Mời thành viên sang nhóm khác</h3><button onClick={onClose}><FiX className="text-gray-400 hover:text-white"/></button></div>
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                    
                     {/* Cột trái: Chọn thành viên */}
                     <div className="w-full md:w-3/5 border-r border-gray-700 p-4 flex flex-col overflow-hidden">
                         <div className="relative mb-2"><FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="text" placeholder="Tìm thành viên..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600"/></div>
@@ -344,27 +356,54 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
                             ))}
                         </div>
                     </div>
-                    {/* Cột phải: Chọn nhóm đích */}
+
+                    {/* Cột phải: Chọn nhóm đích (Đã cập nhật giao diện) */}
                     <div className="w-full md:w-2/5 p-4 flex flex-col bg-gray-800/50">
                         <label className="text-gray-400 text-sm mb-2 font-bold">Mời vào nhóm:</label>
-                        {loadingGroups ? <div className="text-gray-400 flex items-center gap-2"><FiLoader className="animate-spin"/> Đang tải nhóm...</div> : 
-                        <div className="relative mb-4">
-                            <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                            <select value={targetGroupId} onChange={(e) => setTargetGroupId(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-8 py-3 rounded border border-gray-600 appearance-none">
-                                {availableGroups.length === 0 && <option value="">Không có nhóm khác</option>}
-                                {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name} ({g.totalMembers} thành viên)</option>)}
-                            </select>
-                            <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
-                        </div>}
                         
-                        {targetGroupId && availableGroups.find(g => g.id === targetGroupId) && (
-                            <div className="bg-gray-700/50 p-3 rounded flex items-center gap-3 border border-gray-600 mb-4">
-                                <Image src={availableGroups.find(g => g.id === targetGroupId)?.avatar || '/avatar-default-crm.png'} width={40} height={40} alt="" className="rounded-full" onError={(e) => { (e.target as HTMLImageElement).src = '/avatar-default-crm.png'; }}/>
-                                <div><p className="text-white font-bold text-sm">{availableGroups.find(g => g.id === targetGroupId)?.name}</p></div>
+                        {loadingGroups ? (
+                            <div className="text-gray-400 flex items-center gap-2 py-4"><FiLoader className="animate-spin"/> Đang tải danh sách nhóm...</div>
+                        ) : (
+                            <div className="flex-grow flex flex-col overflow-hidden border border-gray-600 rounded-md bg-gray-900/50 mb-4">
+                                {/* Ô tìm kiếm nhóm */}
+                                <div className="p-2 border-b border-gray-600 bg-gray-700/50 relative flex-shrink-0">
+                                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Gõ tên nhóm..."
+                                        value={groupSearchTerm}
+                                        onChange={(e) => setGroupSearchTerm(e.target.value)}
+                                        className="w-full bg-gray-800 text-white pl-9 pr-3 py-2 rounded-md border border-gray-600 focus:outline-none focus:border-blue-500 text-sm"
+                                    />
+                                </div>
+
+                                {/* Danh sách nhóm (Scroll) */}
+                                <div className="flex-grow overflow-y-auto custom-scrollbar p-1 space-y-1">
+                                    {filteredGroups.length === 0 ? (
+                                        <div className="text-center text-gray-500 italic p-4">Không tìm thấy nhóm.</div>
+                                    ) : (
+                                        filteredGroups.map(g => (
+                                            <div 
+                                                key={g.id} 
+                                                onClick={() => setTargetGroupId(g.id)}
+                                                className={`p-2 rounded cursor-pointer flex items-center gap-3 transition-colors border ${targetGroupId === g.id ? 'bg-blue-900/40 border-blue-500' : 'hover:bg-gray-700 border-transparent'}`}
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-gray-600">
+                                                     <img src={g.avatar || '/avatar-default-crm.png'} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm font-bold truncate ${targetGroupId === g.id ? 'text-blue-300' : 'text-gray-200'}`}>{g.name}</p>
+                                                    <p className="text-xs text-gray-500">{g.totalMembers} thành viên</p>
+                                                </div>
+                                                {targetGroupId === g.id && <FiCheckCircle className="text-blue-500 flex-shrink-0" />}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        <div className="mt-auto">
+                        <div className="mt-auto flex-shrink-0">
                             {!hasEnoughPoints && <div className="bg-red-500/10 border-l-4 border-red-500 p-2 text-red-300 text-sm mb-2">Thiếu điểm: {calculatedCost.toLocaleString()}</div>}
                             <button onClick={() => onSubmit(targetGroupId, Array.from(selectedIds))} disabled={selectedIds.size === 0 || !targetGroupId || !hasEnoughPoints} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded disabled:opacity-50 flex justify-center items-center gap-2"><FiShare/> Mời ngay ({selectedIds.size})</button>
                         </div>
