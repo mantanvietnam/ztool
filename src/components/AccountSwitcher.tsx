@@ -19,42 +19,55 @@ export default function AccountSwitcher() {
     }, []);
 
     // ✨ Hàm xử lý xóa tài khoản (Đã cập nhật logic làm sạch localStorage)
+    // ✨ Hàm xử lý xóa tài khoản (Đã cập nhật logic chọn lại tài khoản kế tiếp)
     const handleDeleteAccount = async () => {
         if (!selectedAccount) return;
 
+        // 1. Xác nhận xóa
         const confirmDelete = window.confirm(`Bạn có chắc muốn xóa tài khoản "${selectedAccount.profile.displayName}" khỏi hệ thống?`);
         if (!confirmDelete) return;
 
         setIsDeleting(true);
+
         try {
             const token = localStorage.getItem('authToken');
             if (token) {
-                // 1. Gọi API báo server xóa
+                // 2. Gọi API xóa trên Server
                 await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/deleteInfoZaloAPI`, {
                     token: token,
                     userId: selectedAccount.profile.userId
                 });
-                
-                // 2. ✨ CẬP NHẬT LOCALSTORAGE NGAY LẬP TỨC
-                // Lấy danh sách hiện tại từ LocalStorage
+
+                // 3. Cập nhật LocalStorage (Quan trọng: làm sạch dữ liệu cũ)
                 const currentAccountsStr = localStorage.getItem('zaloAccounts');
+                let newAccounts: any[] = [];
+
                 if (currentAccountsStr) {
                     const currentAccounts = JSON.parse(currentAccountsStr);
                     // Lọc bỏ tài khoản vừa xóa
-                    const newAccounts = currentAccounts.filter((acc: any) => acc.profile.userId !== selectedAccount.profile.userId);
+                    newAccounts = currentAccounts.filter((acc: any) => acc.profile.userId !== selectedAccount.profile.userId);
                     // Lưu lại danh sách mới
                     localStorage.setItem('zaloAccounts', JSON.stringify(newAccounts));
                 }
 
-                // 3. Xóa luôn ID đang chọn trong localStorage nếu trùng
+                // 4. Xử lý việc chọn lại tài khoản (UX)
                 const currentSelectedId = localStorage.getItem('selectedZaloAccountId');
+                
+                // Nếu tài khoản vừa xóa ĐÚNG LÀ tài khoản đang được chọn
                 if (currentSelectedId === selectedAccount.profile.userId) {
-                    localStorage.removeItem('selectedZaloAccountId');
+                    if (newAccounts.length > 0) {
+                        // -> Tự động chuyển sang tài khoản đầu tiên còn lại
+                        localStorage.setItem('selectedZaloAccountId', newAccounts[0].profile.userId);
+                    } else {
+                        // -> Nếu hết sạch tài khoản thì xóa luôn key chọn
+                        localStorage.removeItem('selectedZaloAccountId');
+                    }
                 }
+                // (Trường hợp xóa tài khoản KHÁC tài khoản đang chọn thì giữ nguyên, không làm gì cả)
 
                 alert("Đã xóa tài khoản thành công!");
                 
-                // 4. Reload để Context nhận diện dữ liệu mới từ LocalStorage
+                // 5. Tải lại trang để cập nhật toàn bộ hệ thống
                 window.location.reload();
             }
         } catch (error) {
