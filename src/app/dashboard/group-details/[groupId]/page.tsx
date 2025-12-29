@@ -379,7 +379,7 @@ const AddMembersToTagModal = ({
                 onSuccess(selectedMemberIds.size, targetTag ? targetTag.name : '');
                 onClose();
             } else {
-                alert(response.data.message || "Lỗi khi thêm vào thẻ.");
+                alert(response.data.message || "Lỗi khi thêm vào thẻ phân loại.");
             }
         } catch (error: any) {
             alert(error?.response?.data?.message || "Lỗi kết nối.");
@@ -392,7 +392,7 @@ const AddMembersToTagModal = ({
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl flex flex-col h-[85vh]" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
-                    <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiTag /> Thêm thành viên vào Thẻ</h3>
+                    <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiTag /> Thêm thành viên vào Thẻ phân loại</h3>
                     <button onClick={onClose}><FiX className="text-gray-400 hover:text-white" size={20}/></button>
                 </div>
 
@@ -712,7 +712,7 @@ export default function GroupDetailsPage() {
                     onClose={() => setIsAddToTagModalOpen(false)}
                     onSuccess={(count, tagName) => {
                         // Thông báo đơn giản hoặc dùng Modal thành công của bạn
-                        alert(`Đã thêm thành công ${count} thành viên vào thẻ "${tagName}"`);
+                        alert(`Đã thêm thành công ${count} thành viên vào thẻ phân loại "${tagName}"`);
                     }}
                 />
             )}
@@ -741,7 +741,7 @@ export default function GroupDetailsPage() {
                     <button onClick={() => setIsBulkSendModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiMessageSquare/> Gửi Tin</button>
                     <button onClick={() => setIsBulkAddFriendModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiUserPlus/> Kết Bạn</button>
                     <button onClick={() => setIsInviteGroupModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiShare/> Mời Nhóm</button>
-                    <button onClick={() => setIsAddToTagModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"><FiTag size={20} /> Thêm vào thẻ</button>
+                    <button onClick={() => setIsAddToTagModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"><FiTag size={20} /> Thẻ phân loại</button>
                 </div>
             </div>
 
