@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import Link from 'next/link';
 // ✨ CẬP NHẬT: Thêm FiClock vào import
-import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock } from 'react-icons/fi';
+import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock, FiTag, FiPlus } from 'react-icons/fi';
 import axios from 'axios';
 
 // --- HELPER FUNCTIONS (MỚI - GIỐNG TRANG GỬI NGƯỜI LẠ) ---
@@ -290,7 +290,165 @@ const AddMemberModal = ({ onSubmit, onClose, pointCost, currentUserPoints }: { o
     );
 };
 
-// 4. POPUP MỜI NHÓM
+// Thêm thành viên vào thẻ phân loại
+const AddMembersToTagModal = ({ 
+    members, 
+    selectedAccount, 
+    onClose, 
+    onSuccess 
+}: { 
+    members: any[]; // Danh sách thành viên nhóm hiện tại
+    selectedAccount: any; 
+    onClose: () => void; 
+    onSuccess: (count: number, tagName: string) => void;
+}) => {
+    const [tags, setTags] = useState<any[]>([]);
+    const [selectedTagId, setSelectedTagId] = useState<string>('');
+    const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+    
+    // State tìm kiếm
+    const [searchTag, setSearchTag] = useState('');
+    const [searchMember, setSearchMember] = useState('');
+    
+    const [isLoadingTags, setIsLoadingTags] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 1. Tải danh sách Thẻ khi mở Modal
+    useEffect(() => {
+        const fetchTags = async () => {
+            if (!selectedAccount) return;
+            setIsLoadingTags(true);
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/getListTagAPI`, {
+                    token,
+                    userId: selectedAccount.profile.userId
+                });
+                if (response.data.code === 0) {
+                    setTags(response.data.listData || []);
+                }
+            } catch (error) {
+                console.error("Lỗi tải tags:", error);
+            } finally {
+                setIsLoadingTags(false);
+            }
+        };
+        fetchTags();
+    }, [selectedAccount]);
+
+    // Filter
+    const filteredTags = tags.filter(t => t.name.toLowerCase().includes(searchTag.toLowerCase()));
+    const filteredMembers = members.filter(m => 
+        m.displayName.toLowerCase().includes(searchMember.toLowerCase()) || 
+        (m.userId && m.userId.includes(searchMember))
+    );
+
+    // Xử lý chọn
+    const toggleMember = (id: string) => {
+        const newSet = new Set(selectedMemberIds);
+        newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+        setSelectedMemberIds(newSet);
+    };
+    const handleSelectAll = () => setSelectedMemberIds(new Set(filteredMembers.map(m => m.userId)));
+
+    // Submit
+    const handleSubmit = async () => {
+        if (!selectedTagId || selectedMemberIds.size === 0) return;
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('authToken');
+            
+            // Lọc ra các object thành viên đã chọn để lấy thông tin chi tiết
+            const selectedMembersData = members
+                .filter(m => selectedMemberIds.has(m.userId))
+                .map(m => ({
+                    zalo_uid_friend: m.userId,
+                    zalo_name_friend: m.displayName,
+                    zalo_avatar_friend: m.avatar
+                }));
+
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/saveMemberTagAPI`, {
+                token,
+                userId: selectedAccount.profile.userId,
+                tag_id: selectedTagId,
+                member: selectedMembersData
+            });
+
+            if (response.data.code === 0) {
+                const targetTag = tags.find(t => t.id == selectedTagId);
+                onSuccess(selectedMemberIds.size, targetTag ? targetTag.name : '');
+                onClose();
+            } else {
+                alert(response.data.message || "Lỗi khi thêm vào thẻ.");
+            }
+        } catch (error: any) {
+            alert(error?.response?.data?.message || "Lỗi kết nối.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl flex flex-col h-[85vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                    <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiTag /> Thêm thành viên vào Thẻ</h3>
+                    <button onClick={onClose}><FiX className="text-gray-400 hover:text-white" size={20}/></button>
+                </div>
+
+                <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                    {/* CỘT TRÁI: Chọn Thẻ */}
+                    <div className="w-full md:w-1/3 border-r border-gray-700 p-4 flex flex-col bg-gray-800/50">
+                        <label className="text-gray-300 font-bold mb-2 block text-sm">Bước 1: Chọn Thẻ đích</label>
+                        <div className="relative mb-2">
+                            <input type="text" placeholder="Tìm tên thẻ..." value={searchTag} onChange={e => setSearchTag(e.target.value)} className="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm"/>
+                        </div>
+                        <div className="flex-grow overflow-y-auto space-y-1 custom-scrollbar">
+                            {isLoadingTags ? <div className="text-center text-gray-500 py-4"><FiLoader className="animate-spin inline"/></div> : 
+                            filteredTags.length === 0 ? <div className="text-gray-500 italic text-sm">Chưa có thẻ nào.</div> :
+                            filteredTags.map(tag => (
+                                <div key={tag.id} onClick={() => setSelectedTagId(tag.id)} 
+                                    className={`p-2 rounded cursor-pointer flex justify-between items-center ${selectedTagId === tag.id ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-300'}`}>
+                                    <span className="truncate text-sm font-medium">{tag.name}</span>
+                                    {selectedTagId === tag.id && <FiCheckCircle />}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* CỘT PHẢI: Chọn Thành Viên */}
+                    <div className="w-full md:w-2/3 p-4 flex flex-col">
+                        <label className="text-gray-300 font-bold mb-2 block text-sm">Bước 2: Chọn Thành viên ({selectedMemberIds.size})</label>
+                        <div className="flex gap-2 mb-2">
+                            <input type="text" placeholder="Tìm thành viên nhóm..." value={searchMember} onChange={e => setSearchMember(e.target.value)} className="flex-1 bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm"/>
+                            <button onClick={handleSelectAll} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-blue-400 text-xs rounded">Tất cả</button>
+                        </div>
+                        <div className="flex-grow overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                            {filteredMembers.map(m => (
+                                <label key={m.userId} className={`flex items-center gap-3 p-2 rounded cursor-pointer ${selectedMemberIds.has(m.userId) ? 'bg-blue-900/30 border border-blue-500/50' : 'hover:bg-gray-700 border border-transparent'}`}>
+                                    <input type="checkbox" checked={selectedMemberIds.has(m.userId)} onChange={() => toggleMember(m.userId)} className="w-4 h-4 rounded bg-gray-700 border-gray-600"/>
+                                    <img src={m.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full" onError={(e) => (e.target as HTMLImageElement).src = '/avatar-default-crm.png'}/>
+                                    <div className="min-w-0">
+                                        <p className="text-sm text-gray-200 truncate">{m.displayName}</p>
+                                        <p className="text-xs text-gray-500">{m.userId}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded text-sm">Hủy</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !selectedTagId || selectedMemberIds.size === 0} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-sm flex items-center gap-2 disabled:opacity-50">
+                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Lưu vào thẻ
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // 4. POPUP MỜI NHÓM (CẬP NHẬT UI CHỌN NHÓM)
 const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSubmit, onClose, pointCost, currentUserPoints }: { currentGroupId: string; allMembers: Member[]; selectedAccount: any; onSubmit: (targetGroupId: string, memberIds: string[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -438,6 +596,7 @@ export default function GroupDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isAddToTagModalOpen, setIsAddToTagModalOpen] = useState(false);
     
     // Modal states
     const [isBulkSendModalOpen, setIsBulkSendModalOpen] = useState(false);
@@ -545,6 +704,18 @@ export default function GroupDetailsPage() {
             {isBulkAddFriendModalOpen && <BulkAddFriendModal allMembers={details.members} onClose={() => setIsBulkAddFriendModalOpen(false)} onSubmit={handleBulkAddFriendSubmit} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {isAddMemberModalOpen && <AddMemberModal onClose={() => setIsAddMemberModalOpen(false)} onSubmit={handleAddMemberSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} />}
             {isInviteGroupModalOpen && <InviteToGroupModal currentGroupId={groupId} allMembers={details.members} selectedAccount={selectedAccount} onClose={() => setIsInviteGroupModalOpen(false)} onSubmit={handleInviteToGroupSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} />}
+            {isAddToTagModalOpen && (
+                <AddMembersToTagModal 
+                    // 👇 SỬA Ở ĐÂY: Thay allMembers bằng details.members
+                    members={details?.members || []} 
+                    selectedAccount={selectedAccount}
+                    onClose={() => setIsAddToTagModalOpen(false)}
+                    onSuccess={(count, tagName) => {
+                        // Thông báo đơn giản hoặc dùng Modal thành công của bạn
+                        alert(`Đã thêm thành công ${count} thành viên vào thẻ "${tagName}"`);
+                    }}
+                />
+            )}
             {successInfo && <SuccessModal title={successInfo.title} message={successInfo.message} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
 
             {/* Header */}
@@ -570,6 +741,7 @@ export default function GroupDetailsPage() {
                     <button onClick={() => setIsBulkSendModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiMessageSquare/> Gửi Tin</button>
                     <button onClick={() => setIsBulkAddFriendModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiUserPlus/> Kết Bạn</button>
                     <button onClick={() => setIsInviteGroupModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiShare/> Mời Nhóm</button>
+                    <button onClick={() => setIsAddToTagModalOpen(true)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"><FiTag size={20} /> Thêm vào thẻ</button>
                 </div>
             </div>
 
