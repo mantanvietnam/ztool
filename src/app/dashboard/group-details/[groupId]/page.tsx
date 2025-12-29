@@ -741,7 +741,7 @@ export default function GroupDetailsPage() {
                     <button onClick={() => setIsBulkSendModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiMessageSquare/> Gửi Tin</button>
                     <button onClick={() => setIsBulkAddFriendModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiUserPlus/> Kết Bạn</button>
                     <button onClick={() => setIsInviteGroupModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors"><FiShare/> Mời Nhóm</button>
-                    <button onClick={() => setIsAddToTagModalOpen(true)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"><FiTag size={20} /> Thêm vào thẻ</button>
+                    <button onClick={() => setIsAddToTagModalOpen(true)} className="flex items-center gap-2 bg-orange-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"><FiTag size={20} /> Thêm vào thẻ</button>
                 </div>
             </div>
 
