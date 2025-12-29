@@ -479,10 +479,24 @@ export default function SearchOnMapPage() {
         return () => clearTimeout(delayDebounceFn);
     }, [address]);
 
+    const searchCost = pointCosts?.search_data_map || 0;
+
     // Xử lý tìm kiếm (Backend đã switch sang Goong Multi-keys)
     const handleSearch = async () => { 
         if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } 
         if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } 
+        
+        // ✨ MỚI: Kiểm tra số dư điểm
+        if (user && user.point < searchCost) {
+            setError(`Bạn không đủ điểm. Phí tìm kiếm: ${searchCost.toLocaleString()} điểm (Hiện có: ${user.point.toLocaleString()}).`);
+            return;
+        }
+
+        // ✨ MỚI: Cảnh báo trừ điểm (Confirm)
+        if (searchCost > 0) {
+            const confirmed = window.confirm(`Thao tác này sẽ tốn ${searchCost.toLocaleString()} điểm. Bạn chắc chắn muốn tìm kiếm?`);
+            if (!confirmed) return;
+        }
         
         setLoading(true); 
         setError(null); 
@@ -496,7 +510,26 @@ export default function SearchOnMapPage() {
             }); 
             const data = await response.json(); 
             if (!response.ok || !data.success) { throw new Error(data.message || 'Có lỗi xảy ra từ server.'); } 
+            
             setResults(data.results || []); 
+
+            // ✨ MỚI: Gọi API trừ điểm nếu tìm thấy kết quả
+            if (data.results && data.results.length > 0 && searchCost > 0) {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    if (token) {
+                        // Gọi API trừ điểm BE PHP
+                        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/updatePointSearchMapAPI`, { token });
+                        
+                        // Cập nhật điểm hiển thị ngay lập tức ở phía Client
+                        if (user) updateUserPoints(user.point - searchCost);
+                    }
+                } catch (pointErr) {
+                    console.error("Lỗi khi trừ điểm:", pointErr);
+                    // Có thể thông báo lỗi nhẹ hoặc bỏ qua tùy nghiệp vụ
+                }
+            }
+
         } catch (err: any) { 
             setError(err.message); 
         } finally { 
@@ -656,7 +689,17 @@ export default function SearchOnMapPage() {
                     </div>
                 </div>
 
-                <button onClick={handleSearch} disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md disabled:opacity-50">{loading ? <><FiLoader className="animate-spin"/> Đang tìm kiếm...</> : <><FiSearch/> Tìm kiếm</>}</button>
+                <button onClick={handleSearch} disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md disabled:opacity-50">
+                    {loading ? (
+                        <><FiLoader className="animate-spin"/> Đang tìm kiếm...</>
+                    ) : (
+                        <div className="flex flex-col items-center leading-tight">
+                            <span className="flex items-center gap-2"><FiSearch/> Tìm kiếm</span>
+                            {/* ✨ MỚI: Hiển thị phí tìm kiếm nhỏ bên dưới */}
+                            {searchCost > 0 && <span className="text-xs font-normal text-blue-200">(Phí: {searchCost.toLocaleString()} điểm)</span>}
+                        </div>
+                    )}
+                </button>
             </div>
 
             {error && <div className="bg-red-500/20 text-red-300 p-4 rounded-md mb-6 text-center">{error}</div>}
