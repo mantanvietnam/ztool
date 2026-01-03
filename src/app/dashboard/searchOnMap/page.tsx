@@ -5,7 +5,6 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-// ✨ CẬP NHẬT: Thêm FiClock vào import
 import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
@@ -110,14 +109,12 @@ const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints
     );
 };
 
-// ✨ CẬP NHẬT: Modal gửi tin nhắn có thêm phần chọn thời gian
 const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[], timeSend: string) => void; pointCost: number; currentUserPoints: number; }) => {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState('');
     
-    // ✨ CẬP NHẬT: State cho thời gian gửi
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const MAX_FILES = 10;
@@ -156,7 +153,6 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
         if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints || !sendTime) return;
         setIsSubmitting(true);
         
-        // ✨ CẬP NHẬT: Format thời gian trước khi gửi
         const formattedTime = formatTimeForApi(sendTime);
         await onSubmit(message, selectedFiles, formattedTime);
         
@@ -170,7 +166,6 @@ const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoin
                 <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
                     
-                    {/* ✨ CẬP NHẬT: Input chọn thời gian gửi */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
                         <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
@@ -226,7 +221,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // ✨ MỚI: State cho từ khóa tìm kiếm nhóm
     const [searchTerm, setSearchTerm] = useState('');
 
     const calculatedCost = count * pointCost;
@@ -257,7 +251,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
         setIsSubmitting(false);
     };
 
-    // ✨ MỚI: Lọc nhóm theo từ khóa
     const filteredGroups = groups.filter(group => 
         group.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -270,9 +263,7 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
                 <div className="p-6 space-y-4">
                     <p className="text-gray-300">Chọn nhóm để thêm <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
                     
-                    {/* ✨ MỚI: Giao diện chọn nhóm có tìm kiếm */}
                     <div className="border border-gray-600 rounded-md overflow-hidden bg-gray-900/50">
-                        {/* Thanh tìm kiếm */}
                         <div className="p-2 border-b border-gray-600 bg-gray-700/50 relative">
                             <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input
@@ -284,7 +275,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
                             />
                         </div>
 
-                        {/* Danh sách nhóm cuộn */}
                         <div className="max-h-64 overflow-y-auto custom-scrollbar">
                             {isLoading ? (
                                 <div className="p-6 text-center text-gray-400 flex flex-col items-center justify-center gap-2">
@@ -302,7 +292,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
                                             onClick={() => setSelectedGroupId(group.id)}
                                             className={`p-3 cursor-pointer flex items-center gap-3 transition-colors ${selectedGroupId === group.id ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'hover:bg-gray-700 border-l-4 border-transparent'}`}
                                         >
-                                            {/* Avatar nhóm */}
                                             <div className="w-10 h-10 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden border border-gray-600">
                                                 {group.avatar && group.avatar !== '0' ? (
                                                     <img src={group.avatar} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
@@ -311,7 +300,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
                                                 )}
                                             </div>
                                             
-                                            {/* Thông tin nhóm */}
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-sm font-medium truncate ${selectedGroupId === group.id ? 'text-blue-300' : 'text-gray-200'}`}>
                                                     {group.name}
@@ -321,7 +309,6 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
                                                 </p>
                                             </div>
                                             
-                                            {/* Icon check khi chọn */}
                                             {selectedGroupId === group.id && <FiCheckCircle className="text-blue-500 flex-shrink-0" />}
                                         </div>
                                     ))}
@@ -350,7 +337,6 @@ export default function SearchOnMapPage() {
     const router = useRouter();
     const addressInputRef = useRef<HTMLInputElement>(null);
 
-    // ✨ BIẾN CỜ HIỆU: True nếu vừa bấm chọn, False nếu đang gõ
     const isSelection = useRef(false);
 
     const [keyword, setKeyword] = useState('');
@@ -375,7 +361,6 @@ export default function SearchOnMapPage() {
             const permission = await navigator.permissions.query({ name: 'geolocation' }); 
             if (permission.state === 'granted' || permission.state === 'prompt') { 
                 setAddress('Đang lấy vị trí...');
-                // Đánh dấu để không trigger autocomplete
                 isSelection.current = true;
                 
                 navigator.geolocation.getCurrentPosition( 
@@ -398,11 +383,8 @@ export default function SearchOnMapPage() {
         } 
     }, []);
 
-    // ✨ HÀM XỬ LÝ KHI GÕ (Chỉ cập nhật UI, không gọi API ngay)
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // Đánh dấu: Đang nhập liệu -> CHO PHÉP tìm kiếm
         isSelection.current = false;
-        
         setAddress(e.target.value);
         setCoords(null); 
 
@@ -412,31 +394,21 @@ export default function SearchOnMapPage() {
         }
     };
 
-    // ✨ CẬP NHẬT: Khi chọn địa chỉ -> Lấy luôn tọa độ
     const selectSuggestion = async (prediction: any) => {
-        // Đánh dấu: Đã chọn xong -> CHẶN tìm kiếm
         isSelection.current = true;
-        
-        // 1. Hiển thị text lên ô input
         setAddress(prediction.description);
         setSuggestions([]);
         setShowSuggestions(false);
 
-        // 2. Gọi API lấy tọa độ chi tiết của địa điểm vừa chọn
         try {
-            // Hiển thị trạng thái đang lấy tọa độ (nếu cần)
             console.log("Đang lấy tọa độ cho:", prediction.description);
-            
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-place-detail`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ place_id: prediction.place_id }),
             });
-            
             const data = await response.json();
-            
             if (data.success && data.location) {
-                // ✨ LƯU TỌA ĐỘ VÀO STATE
                 setCoords({ lat: data.location.lat, lng: data.location.lng });
                 console.log("Đã cập nhật tọa độ:", data.location);
             }
@@ -445,12 +417,8 @@ export default function SearchOnMapPage() {
         }
     };
 
-    // ✨ USEEFFECT VỚI DEBOUNCE (800ms)
     useEffect(() => {
-        // Nếu biến cờ là true (vừa chọn xong) thì dừng ngay, không gọi API
         if (isSelection.current) return;
-
-        // Chỉ chạy nếu address có nội dung và dài hơn 3 ký tự
         if (!address || address.length < 3) {
             setSuggestions([]);
             return;
@@ -459,14 +427,12 @@ export default function SearchOnMapPage() {
         const delayDebounceFn = setTimeout(async () => {
             console.log("Đang tìm gợi ý địa chỉ cho:", address);
             try {
-                // Gọi về Backend (đã có cơ chế đổi Key ở server.js)
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/place-autocomplete`, { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify({ input: address }), 
                 });
                 const data = await response.json();
-                
                 if (data.success) {
                     setSuggestions(data.predictions);
                     setShowSuggestions(true);
@@ -474,25 +440,22 @@ export default function SearchOnMapPage() {
             } catch (err) {
                 console.error("Lỗi Autocomplete:", err);
             }
-        }, 800); // Delay 800ms
+        }, 800);
 
         return () => clearTimeout(delayDebounceFn);
     }, [address]);
 
     const searchCost = pointCosts?.search_data_map || 0;
 
-    // Xử lý tìm kiếm (Backend đã switch sang Goong Multi-keys)
     const handleSearch = async () => { 
         if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } 
         if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } 
         
-        // ✨ MỚI: Kiểm tra số dư điểm
         if (user && user.point < searchCost) {
             setError(`Bạn không đủ điểm. Phí tìm kiếm: ${searchCost.toLocaleString()} điểm (Hiện có: ${user.point.toLocaleString()}).`);
             return;
         }
 
-        // ✨ MỚI: Cảnh báo trừ điểm (Confirm)
         if (searchCost > 0) {
             const confirmed = window.confirm(`Thao tác này sẽ tốn ${searchCost.toLocaleString()} điểm. Bạn chắc chắn muốn tìm kiếm?`);
             if (!confirmed) return;
@@ -513,20 +476,15 @@ export default function SearchOnMapPage() {
             
             setResults(data.results || []); 
 
-            // ✨ MỚI: Gọi API trừ điểm nếu tìm thấy kết quả
             if (data.results && data.results.length > 0 && searchCost > 0) {
                 try {
                     const token = localStorage.getItem('authToken');
                     if (token) {
-                        // Gọi API trừ điểm BE PHP
                         await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/updatePointSearchMapAPI`, { token });
-                        
-                        // Cập nhật điểm hiển thị ngay lập tức ở phía Client
                         if (user) updateUserPoints(user.point - searchCost);
                     }
                 } catch (pointErr) {
                     console.error("Lỗi khi trừ điểm:", pointErr);
-                    // Có thể thông báo lỗi nhẹ hoặc bỏ qua tùy nghiệp vụ
                 }
             }
 
@@ -537,7 +495,6 @@ export default function SearchOnMapPage() {
         } 
     };
 
-    // Xuất Excel
     const handleExport = () => {
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         const cost = pointCosts.export_data_map || 0;
@@ -553,7 +510,6 @@ export default function SearchOnMapPage() {
         alert(`Xuất file thành công! Đã trừ ${cost} điểm.`);
     };
 
-    // Helper request
     const createRequest = async (endpoint: string, payload: object) => { 
         const token = localStorage.getItem('authToken'); 
         if (!token) throw new Error("Không tìm thấy token xác thực."); 
@@ -575,7 +531,9 @@ export default function SearchOnMapPage() {
         if (!selectedAccount) { setError("Vui lòng chọn tài khoản Zalo để thực hiện."); return; }
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         
+        // 1. Chỉ lấy danh sách số điện thoại (Array of Strings)
         const phoneNumbers = results.map(r => r.international_phone_number?.replace(/\s/g, '')).filter(Boolean) as string[];
+        
         if (phoneNumbers.length === 0) { setError("Không có số điện thoại nào để thực hiện hành động."); return; }
         
         let costPerAction = 0;
@@ -586,7 +544,8 @@ export default function SearchOnMapPage() {
         }
         const totalCost = phoneNumbers.length * costPerAction;
 
-        const listRequest = results.filter(r => r.international_phone_number).map(r => ({ phone: r.international_phone_number!.replace(/\s/g, ''), name: r.name }));
+        // ✨ CẬP NHẬT: Không còn dùng mảng object {phone, name} nữa
+        // const listRequest = ... (Đã bỏ)
         
         setModalState('none');
         try {
@@ -599,9 +558,10 @@ export default function SearchOnMapPage() {
                 formData.append('userId', selectedAccount.profile.userId);
                 formData.append('message', messageOrGroupId);
                 formData.append('type', 'stranger');
-                // ✨ CẬP NHẬT: Gửi thời gian gửi lên API
                 formData.append('timeSend', timeSend);
-                formData.append('list_request', JSON.stringify(listRequest));
+                
+                // ✨ CẬP NHẬT: Gửi mảng string thay vì mảng object
+                formData.append('list_request', JSON.stringify(phoneNumbers));
 
                 if (files && files.length > 0) {
                     files.forEach(file => formData.append('files[]', file));
@@ -614,11 +574,13 @@ export default function SearchOnMapPage() {
                 const data = response.data;
                 if (data.code !== 0) { if(data.code === 3) router.push('/logout'); throw new Error(data.mess || "Tạo yêu cầu thất bại."); }
 
-                setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu gửi tin đến <b>${listRequest.length}</b> SĐT.`, redirectUrl: '/dashboard/listSendMessageStranger' });
+                setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu gửi tin đến <b>${phoneNumbers.length}</b> SĐT.`, redirectUrl: '/dashboard/listSendMessageStranger' });
             } else if (actionType === 'addFriend') {
-                await createRequest('createRequestAddFriendAPI', { userId: selectedAccount.profile.userId, message: messageOrGroupId, list_request: listRequest, type: 'phone' });
-                setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu kết bạn đến <b>${listRequest.length}</b> SĐT.`, redirectUrl: '/dashboard/listRequestAddFriend' });
+                // ✨ CẬP NHẬT: Gửi mảng string (phoneNumbers) vào list_request
+                await createRequest('createRequestAddFriendAPI', { userId: selectedAccount.profile.userId, message: messageOrGroupId, list_request: phoneNumbers, type: 'phone' });
+                setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu kết bạn đến <b>${phoneNumbers.length}</b> SĐT.`, redirectUrl: '/dashboard/listRequestAddFriend' });
             } else if (actionType === 'addToGroup') {
+                // Action này đã dùng phoneNumbers từ trước, giữ nguyên
                 await createRequest('addMemberToGroupAPI', { userId: selectedAccount.profile.userId, groupId: messageOrGroupId, phones: phoneNumbers });
                 setSuccessInfo({ title: "Thành công", message: `Đã tạo yêu cầu thêm <b>${phoneNumbers.length}</b> SĐT vào nhóm.`, redirectUrl: '/dashboard/listRequestAddMemberGroup' });
             }
@@ -636,7 +598,6 @@ export default function SearchOnMapPage() {
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {/* ✨ CẬP NHẬT: Truyền onSubmit với tham số timeSend */}
             {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files, timeSend) => handleSubmitAction(msg, 'message', files, timeSend)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
             
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
@@ -655,7 +616,6 @@ export default function SearchOnMapPage() {
                     </div>
                 </div>
                 
-                {/* --- AUTOCOMPLETE DROPDOWN --- */}
                 <div className="relative">
                     <label className="block text-sm font-medium text-gray-300 mb-2">Địa chỉ hoặc vị trí</label>
                     <div className="flex gap-2">
@@ -695,7 +655,6 @@ export default function SearchOnMapPage() {
                     ) : (
                         <div className="flex flex-col items-center leading-tight">
                             <span className="flex items-center gap-2"><FiSearch/> Tìm kiếm</span>
-                            {/* ✨ MỚI: Hiển thị phí tìm kiếm nhỏ bên dưới */}
                             {searchCost > 0 && <span className="text-xs font-normal text-blue-200">(Phí: {searchCost.toLocaleString()} điểm)</span>}
                         </div>
                     )}
