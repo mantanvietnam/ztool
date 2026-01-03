@@ -300,15 +300,15 @@ export default function DashboardHomePage() {
                     <SupportItem 
                         icon={<FiMail size={20} />} 
                         label="Email hỗ trợ" 
-                        value="tranmanhbk179@gmail.com" 
-                        href="mailto:tranmanhbk179@gmail.com"
+                        value="ztool.ai.vn@gmail.com" 
+                        href="mailto:ztool.ai.vn@gmail.com"
                         actionLabel="Gửi email"
                     />
                     <SupportItem 
                         icon={<FiFacebook size={20} />} 
                         label="Facebook Admin" 
-                        value="Mạnh Trần (ManMo)" 
-                        href="https://www.facebook.com/manh.tran.manmo"
+                        value="Ztool" 
+                        href="https://www.facebook.com/ztoolvn"
                         actionLabel="Nhắn tin"
                     />
                 </div>
