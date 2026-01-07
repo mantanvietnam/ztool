@@ -11,6 +11,15 @@ import Link from 'next/link';
 import axios from 'axios';
 
 // --- HELPER FUNCTIONS (MỚI) ---
+const MAP_SOURCE =
+  process.env.NEXT_PUBLIC_MAP_SOURCE === 'google'
+    ? 'google'
+    : 'osm';
+
+const SEARCH_ENDPOINT =
+  MAP_SOURCE === 'google'
+    ? 'search-places-google'
+    : 'search-places-osm';
 
 // Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
 const getCurrentDateTimeLocal = () => {
@@ -466,7 +475,7 @@ export default function SearchOnMapPage() {
         setResults([]); 
         
         try { 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search-places-google`, { 
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/${SEARCH_ENDPOINT}`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ keyword, radius, lat: coords?.lat, lng: coords?.lng, address: coords ? undefined : address }), 
@@ -603,7 +612,7 @@ export default function SearchOnMapPage() {
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
-            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu Google Map</h1>
+            <h1 className="text-3xl font-bold mb-6 flex items-center gap-3"><FiMapPin /> Quét dữ liệu bản đồ</h1>
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
