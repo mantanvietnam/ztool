@@ -11,15 +11,17 @@ import Link from 'next/link';
 import axios from 'axios';
 
 // --- HELPER FUNCTIONS (MỚI) ---
-const MAP_SOURCE =
-  process.env.NEXT_PUBLIC_MAP_SOURCE === 'google'
-    ? 'google'
-    : 'osm';
+const MAP_SOURCE = process.env.NEXT_PUBLIC_MAP_SOURCE || 'osm';
+
+const SEARCH_ENDPOINT_MAP: Record<string, string> = {
+  google: 'search-places-google',
+  osm: 'search-places-osm',
+  serpapi: 'search-places-serpapi'
+};
 
 const SEARCH_ENDPOINT =
-  MAP_SOURCE === 'google'
-    ? 'search-places-google'
-    : 'search-places-osm';
+  SEARCH_ENDPOINT_MAP[MAP_SOURCE] || SEARCH_ENDPOINT_MAP.google;
+
 
 // Lấy thời gian hiện tại cho input datetime-local (YYYY-MM-DDTHH:mm)
 const getCurrentDateTimeLocal = () => {
