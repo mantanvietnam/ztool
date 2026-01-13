@@ -10,6 +10,7 @@ import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiMoreVertical, FiMessage
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import MessageComposer from '@/components/MessageComposer';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 
@@ -94,144 +95,101 @@ const BulkUnfriendModal = ({ allFriends, onSubmit, onClose, pointCost, currentUs
 };
 
 // COMPONENT: BulkSendMessageModal (Gửi tin nhắn hàng loạt - CÓ FILE & THỜI GIAN)
-const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, currentUserPoints }: { allFriends: Friend[]; onSubmit: (message: string, friendIds: string[], files: File[], timeSend: string) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
+const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, currentUserPoints }: any) => {
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [searchTerm, setSearchTerm] = useState('');
-    const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
-    const [showAdvanced, setShowAdvanced] = useState(false);
-    
-    // State quản lý file & Thời gian
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [fileError, setFileError] = useState('');
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Lọc danh sách bạn bè để chọn
+    const filteredList = allFriends.filter((f: any) => 
+        f.displayName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
-    // CONSTANT GIỚI HẠN FILE
-    const MAX_FILES = 10;
-    const MAX_SIZE_MB = 2;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-    const filteredList = useMemo(() => { return allFriends.filter(friend => { const nameMatch = friend.displayName.toLowerCase().includes(searchTerm.toLowerCase()); const phoneMatch = friend.phoneNumber && friend.phoneNumber.includes(searchTerm); if (searchTerm && !nameMatch && !phoneMatch) return false; if (showAdvanced) { if (genderFilter === 'male' && friend.gender !== 0) return false; if (genderFilter === 'female' && friend.gender !== 1) return false; } return true; }); }, [allFriends, searchTerm, genderFilter, showAdvanced]);
-    const handleToggleSelect = (friendId: string) => { const newSelectedIds = new Set(selectedIds); newSelectedIds.has(friendId) ? newSelectedIds.delete(friendId) : newSelectedIds.add(friendId); setSelectedIds(newSelectedIds); };
-    const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(f => f.userId)));
-    const handleDeselectAll = () => setSelectedIds(new Set());
-    
-    // ✨ CẬP NHẬT: Pass thêm files và timeSend vào submit
-    const handleSubmit = () => {
-        const formattedTime = formatTimeForApi(sendTime);
-        onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
+    const handleToggleSelect = (id: string) => {
+        const next = new Set(selectedIds);
+        next.has(id) ? next.delete(id) : next.add(id);
+        setSelectedIds(next);
     };
 
-    // Hàm xử lý chọn file
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const filesArray = Array.from(e.target.files);
-            const validFiles: File[] = [];
-            let validationError = '';
-
-            if (selectedFiles.length + filesArray.length > MAX_FILES) {
-                setFileError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
-                e.target.value = '';
-                return;
-            }
-
-            filesArray.forEach(file => {
-                if (!file.type.startsWith('image/')) {
-                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
-                    return;
-                }
-                if (file.size > MAX_SIZE_BYTES) {
-                    validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`;
-                    return;
-                }
-                validFiles.push(file);
-            });
-
-            if (validationError) {
-                setFileError(validationError);
-            } else {
-                setFileError('');
-            }
-
-            if (validFiles.length > 0) {
-                setSelectedFiles(prev => [...prev, ...validFiles]);
-            }
-            e.target.value = '';
+    const handleSelectAll = () => {
+        if (selectedIds.size === filteredList.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredList.map((f: any) => f.userId)));
         }
     };
 
-    // Hàm xóa file
-    const handleRemoveFile = (index: number) => {
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-        setFileError('');
-    };
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl flex flex-col h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-900 border-b border-gray-700 flex-shrink-0"><h3 className="font-bold text-white text-lg">Gửi tin nhắn hàng loạt đến bạn bè</h3></div>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-white text-lg">Gửi tin nhắn hàng loạt cho bạn bè</h3>
+                    <button onClick={onClose}><FiX size={20} className="text-white"/></button>
+                </div>
+                
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-                    <div className="w-full md:w-2/5 border-b md:border-b-0 md:border-r border-gray-700 p-4 flex flex-col space-y-3 overflow-hidden h-1/2 md:h-auto">{/* Filters and Friend List JSX */}<div className="flex-shrink-0 space-y-3"><div className="relative"><FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="text" placeholder="Tìm theo tên hoặc SĐT..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600"/></div><button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm text-blue-400 hover:underline flex items-center gap-1">{showAdvanced ? 'Ẩn bộ lọc nâng cao' : 'Hiện bộ lọc nâng cao'} <FiChevronDown className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /></button>{showAdvanced && (<div className="space-y-3 p-3 bg-gray-900/50 rounded-md animate-fade-in-down"><select value={genderFilter} onChange={e => setGenderFilter(e.target.value as any)} className="w-full bg-gray-700 text-white p-2 rounded-md text-sm"><option value="all">Tất cả giới tính</option><option value="male">Nam</option><option value="female">Nữ</option></select></div>)}</div><hr className="border-gray-600 flex-shrink-0"/><div className="flex justify-between items-center text-sm flex-shrink-0"><p className="text-gray-400">Đã chọn: <span className="font-bold text-white">{selectedIds.size}</span> / {filteredList.length}</p><div className="flex gap-4"><button onClick={handleSelectAll} className="text-blue-400 hover:underline">Chọn tất cả</button><button onClick={handleDeselectAll} className="text-blue-400 hover:underline">Bỏ chọn</button></div></div><div className="flex-grow space-y-2 overflow-y-auto pr-2">{filteredList.map(friend => (<label key={friend.userId} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><input type="checkbox" checked={selectedIds.has(friend.userId)} onChange={() => handleToggleSelect(friend.userId)} className="form-checkbox h-5 w-5 bg-gray-900 border-gray-600 text-blue-500 focus:ring-blue-500"/><Image src={friend.avatar || '/avatar-default-crm.png'} alt={friend.displayName} width={40} height={40} className="rounded-full" onError={(e) => { e.currentTarget.src = '/avatar-default-crm.png'; }}/><span className="text-white truncate">{friend.displayName}</span></label>))}</div></div>
-                    <div className="w-full md:w-3/5 p-4 flex flex-col overflow-hidden h-1/2 md:h-auto overflow-y-auto">
-                        
-                        {/* ✨ CẬP NHẬT: Thêm input chọn thời gian gửi */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
-                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
-                                <FiClock className="text-gray-400 mr-2" />
-                                <input 
-                                    type="datetime-local" 
-                                    value={sendTime}
-                                    onChange={(e) => setSendTime(e.target.value)}
-                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
-                        </div>
-
-                        <h4 className="font-bold text-white mb-2 flex-shrink-0">Soạn nội dung</h4>
-                        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                        
-                        {/* Khu vực chọn file đính kèm */}
-                        <div className="mt-3">
-                            <input type="file" multiple accept="image/*" id="file-upload-bulk" className="hidden" onChange={handleFileChange} />
-                            <label htmlFor="file-upload-bulk" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
-                                <FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})
+                    {/* Bên trái: Danh sách chọn bạn bè */}
+                    <div className="w-full md:w-2/5 border-r border-gray-700 p-4 flex flex-col overflow-hidden bg-gray-800/30">
+                        <input 
+                            type="text" 
+                            placeholder="Tìm tên bạn bè..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="w-full bg-gray-700 text-white p-2 rounded mb-4 outline-none border border-gray-600 text-sm"
+                        />
+                        <div className="flex justify-between items-center mb-2 px-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-400">
+                                <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredList.length && filteredList.length > 0} className="rounded border-gray-600 bg-gray-900"/>
+                                Chọn tất cả ({filteredList.length})
                             </label>
-
-                            {selectedFiles.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                    {selectedFiles.map((file, index) => (
-                                        <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
-                                            <span className="text-gray-300 truncate max-w-[90%]">
-                                                {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
-                                            </span>
-                                            <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
-                                                <FiTrash2 />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {fileError && <p className="text-sm text-red-400 mt-1 font-semibold">{fileError}</p>}
-                            <p className="text-xs text-gray-500 mt-1 italic">* Chỉ chấp nhận file ảnh, tối đa {MAX_SIZE_MB}MB/file, tối đa {MAX_FILES} file.</p>
+                            <span className="text-xs text-blue-400">Đã chọn: {selectedIds.size}</span>
                         </div>
+                        <div className="flex-grow overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                            {filteredList.map((friend: any) => (
+                                <label key={friend.userId} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer transition-colors">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedIds.has(friend.userId)} 
+                                        onChange={() => handleToggleSelect(friend.userId)} 
+                                        className="form-checkbox h-4 w-4 text-blue-500 rounded border-gray-600 bg-gray-900"
+                                    />
+                                    <img src={friend.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full object-cover" />
+                                    <span className="text-white text-sm truncate">{friend.displayName}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
 
-                        {!hasEnoughPoints && selectedIds.size > 0 && (
-                            <div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-3 text-sm">
-                                <p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p>
-                                <Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link>
-                            </div>
-                        )}
-                        <div className="mt-4 p-3 bg-gray-900/50 rounded-md text-sm text-gray-400 flex-shrink-0"><p className="font-bold text-gray-300 flex items-center gap-2"><FiHelpCircle/> Hướng dẫn cú pháp Spin</p><p>Dùng các biến sau: <code className="bg-gray-700 px-1 rounded">%name%</code>, <code className="bg-gray-700 px-1 rounded">%phone%</code>, <code className="bg-gray-700 px-1 rounded">%gender%</code>, <code className="bg-gray-700 px-1 rounded">%birthday%</code>.</p><p>Dùng <code className="bg-gray-700 px-1 rounded">{`{a|b|c}`}</code> để tạo spin nội dung.</p></div>
+                    {/* Bên phải: Soạn tin nhắn dùng Composer */}
+                    <div className="w-full md:w-3/5 p-6 overflow-y-auto custom-scrollbar bg-gray-800">
+                        <MessageComposer 
+                            message={message} onChangeMessage={setMessage}
+                            selectedFiles={selectedFiles} onFilesChange={setSelectedFiles}
+                            timeSend={sendTime} onTimeSendChange={setSendTime}
+                        />
                     </div>
                 </div>
-                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center flex-shrink-0">
-                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button><button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed"><FiSend/> Gửi ({selectedIds.size})</button></div>
+
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center shrink-0 rounded-b-lg">
+                    <div className="text-sm">
+                        <span className="text-gray-400">Chi phí: </span>
+                        <span className={`font-bold ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold">Hủy</button>
+                        <button 
+                            onClick={() => onSubmit(message, Array.from(selectedIds), selectedFiles, formatTimeForApi(sendTime))} 
+                            disabled={selectedIds.size === 0 || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded font-bold disabled:opacity-50 transition-all shadow-lg"
+                        >
+                            Gửi cho {selectedIds.size} bạn bè
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -239,137 +197,37 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
 };
 
 // COMPONENT: SendMessageModal (Gửi tin nhắn đơn lẻ - CÓ FILE & THỜI GIAN)
-const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoints }: { friend: Friend; onClose: () => void; onSend: (message: string, files: File[], timeSend: string) => Promise<void>; pointCost: number; currentUserPoints: number; }) => {
+const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoints }: any) => {
     const [message, setMessage] = useState('');
-    const [isSending, setIsSending] = useState(false);
-    const [error, setError] = useState('');
-    
-    // State quản lý file & Thời gian
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [fileError, setFileError] = useState('');
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+    const [isSending, setIsSending] = useState(false);
 
     const hasEnoughPoints = currentUserPoints >= pointCost;
-    
-    // CONSTANT GIỚI HẠN FILE
-    const MAX_FILES = 10;
-    const MAX_SIZE_MB = 2;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-    // Hàm xử lý chọn file
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const filesArray = Array.from(e.target.files);
-            const validFiles: File[] = [];
-            let validationError = '';
-
-            if (selectedFiles.length + filesArray.length > MAX_FILES) {
-                setFileError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
-                e.target.value = '';
-                return;
-            }
-
-            filesArray.forEach(file => {
-                if (!file.type.startsWith('image/')) {
-                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
-                    return;
-                }
-                if (file.size > MAX_SIZE_BYTES) {
-                    validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`;
-                    return;
-                }
-                validFiles.push(file);
-            });
-
-            if (validationError) {
-                setFileError(validationError);
-            } else {
-                setFileError('');
-            }
-
-            if (validFiles.length > 0) {
-                setSelectedFiles(prev => [...prev, ...validFiles]);
-            }
-            e.target.value = '';
-        }
-    };
-
-    // Hàm xóa file
-    const handleRemoveFile = (index: number) => {
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-        setFileError('');
-    };
 
     const handleSend = async () => {
-        if ((!message.trim() && selectedFiles.length === 0) || isSending || !hasEnoughPoints || !sendTime) return;
-        
-        setIsSending(true); 
-        setError('');
-        try { 
-            // ✨ CẬP NHẬT: Truyền thêm timeSend
-            const formattedTime = formatTimeForApi(sendTime);
-            await onSend(message, selectedFiles, formattedTime); 
-        } catch (err: any) { 
-            setError(err.message); 
-        } finally { 
-            setIsSending(false); 
-        }
+        if ((!message.trim() && selectedFiles.length === 0) || isSending || !hasEnoughPoints) return;
+        setIsSending(true);
+        await onSend(message, selectedFiles, formatTimeForApi(sendTime));
+        setIsSending(false);
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                    <div className="flex items-center gap-3"><Image src={friend.avatar} alt={friend.displayName} width={40} height={40} className="rounded-full" /><div><p className="text-sm text-gray-400">Gửi đến:</p><p className="font-semibold text-white">{friend.displayName}</p></div></div>
-                    
-                    {/* ✨ CẬP NHẬT: Thêm input chọn thời gian gửi */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi</label>
-                        <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
-                            <FiClock className="text-gray-400 mr-2" />
-                            <input 
-                                type="datetime-local" 
-                                value={sendTime}
-                                onChange={(e) => setSendTime(e.target.value)}
-                                className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
-                            />
-                        </div>
-                    </div>
-
-                    <textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`Nhập tin nhắn...`} className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                    
-                    {/* Khu vực chọn file */}
-                    <div>
-                        <input type="file" multiple accept="image/*" id="file-upload-single" className="hidden" onChange={handleFileChange} />
-                        <label htmlFor="file-upload-single" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
-                            <FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})
-                        </label>
-
-                        {selectedFiles.length > 0 && (
-                            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                                {selectedFiles.map((file, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
-                                        <span className="text-gray-300 truncate max-w-[80%]">
-                                            {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
-                                        </span>
-                                        <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
-                                            <FiTrash2 />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {fileError && <p className="text-sm text-red-400 mt-1 font-semibold">{fileError}</p>}
-                    </div>
-
-                    {error && <p className="text-sm text-red-400">{error}</p>}
-                    {!hasEnoughPoints && <div className="text-sm text-red-400 mt-2"><p>Không đủ điểm để gửi tin nhắn. <Link href="/dashboard/billing" className="text-blue-400 hover:underline">Nạp điểm?</Link></p></div>}
+                <div className="p-4 bg-gray-700 flex justify-between items-center font-bold text-white">Gửi tin nhắn cho {friend.displayName} <FiX className="cursor-pointer" onClick={onClose}/></div>
+                <div className="p-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                    <MessageComposer 
+                        message={message} onChangeMessage={setMessage}
+                        selectedFiles={selectedFiles} onFilesChange={setSelectedFiles}
+                        timeSend={sendTime} onTimeSendChange={setSendTime}
+                    />
                 </div>
-                <div className="p-4 bg-gray-900 flex justify-between items-center">
-                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{pointCost.toLocaleString()} điểm</span></div>
-                    {/* Disable nút gửi nếu không có nội dung VÀ không có file */}
-                    <button onClick={handleSend} disabled={isSending || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-600">{isSending ? <><FiLoader className="animate-spin"/> Đang gửi...</> : <><FiSend /> Gửi</>}</button>
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center">
+                    <span className="text-yellow-400 font-bold">{pointCost.toLocaleString()} điểm</span>
+                    <button onClick={handleSend} disabled={isSending || !hasEnoughPoints} className="bg-blue-600 px-6 py-2 rounded font-bold text-white disabled:opacity-50">
+                        {isSending ? <FiLoader className="animate-spin"/> : "Gửi ngay"}
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -8,8 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import Link from 'next/link';
 // ✨ CẬP NHẬT: Thêm FiClock vào import
-import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock, FiTag, FiPlus } from 'react-icons/fi';
+import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock, FiTag, FiPlus, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
+import MessageComposer from '@/components/MessageComposer';
 
 // --- HELPER FUNCTIONS (MỚI - GIỐNG TRANG GỬI NGƯỜI LẠ) ---
 
@@ -71,118 +72,80 @@ const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, curren
     const [message, setMessage] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
-    
-    // ✨ CẬP NHẬT: State cho thời gian gửi
-    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
-
-    // File upload state
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [fileError, setFileError] = useState('');
-    const MAX_FILES = 10;
-    const MAX_SIZE_MB = 2;
+    const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
 
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
     
-    // Filter logic
     const filteredList = useMemo(() => {
-        return allMembers.filter(member => {
-            const nameMatch = member.displayName.toLowerCase().includes(searchTerm.toLowerCase());
-            const phoneMatch = member.phoneNumber && member.phoneNumber.includes(searchTerm);
-            return !searchTerm || nameMatch || phoneMatch;
-        });
+        return allMembers.filter(member => 
+            member.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            (member.phoneNumber && member.phoneNumber.includes(searchTerm))
+        );
     }, [allMembers, searchTerm]);
 
-    const handleToggleSelect = (memberId: string) => { const newSelectedIds = new Set(selectedIds); newSelectedIds.has(memberId) ? newSelectedIds.delete(memberId) : newSelectedIds.add(memberId); setSelectedIds(newSelectedIds); };
-    const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(m => m.userId)));
-    const handleDeselectAll = () => setSelectedIds(new Set());
-    
-    // ✨ CẬP NHẬT: Handle Submit truyền thêm timeSend
-    const handleSubmit = () => {
-        const formattedTime = formatTimeForApi(sendTime);
-        onSubmit(message, Array.from(selectedIds), selectedFiles, formattedTime);
+    const handleToggleSelect = (id: string) => {
+        const next = new Set(selectedIds);
+        next.has(id) ? next.delete(id) : next.add(id);
+        setSelectedIds(next);
     };
-    
-    // Xử lý file
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const filesArray = Array.from(e.target.files);
-            const validFiles: File[] = [];
-            let err = '';
-            if (selectedFiles.length + filesArray.length > MAX_FILES) { setFileError(`Tối đa ${MAX_FILES} file.`); return; }
-            filesArray.forEach(file => { 
-                if (!file.type.startsWith('image/')) { err = 'Chỉ chấp nhận file ảnh.'; return; }
-                if (file.size > MAX_SIZE_MB * 1024 * 1024) { err = `File quá lớn (> ${MAX_SIZE_MB}MB).`; return; }
-                validFiles.push(file); 
-            });
-            if(err) setFileError(err);
-            else setFileError('');
-            setSelectedFiles(prev => [...prev, ...validFiles]);
-            e.target.value = '';
-        }
-    };
-    const handleRemoveFile = (index: number) => { setSelectedFiles(prev => prev.filter((_, i) => i !== index)); };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl flex flex-col h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-900 border-b border-gray-700 flex-shrink-0"><h3 className="font-bold text-white text-lg">Gửi tin nhắn cho thành viên nhóm</h3></div>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiMessageSquare /> Gửi tin nhắn thành viên nhóm</h3>
+                    <button onClick={onClose}><FiX size={20} className="text-white"/></button>
+                </div>
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-                    {/* Cột trái: Danh sách thành viên */}
-                    <div className="w-full md:w-2/5 border-b md:border-b-0 md:border-r border-gray-700 p-4 flex flex-col space-y-3 overflow-hidden h-1/2 md:h-auto">
-                        <div className="relative"><FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="text" placeholder="Tìm tên hoặc SĐT..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600"/></div>
-                        <div className="flex justify-between items-center text-sm flex-shrink-0"><p className="text-gray-400">Đã chọn: <span className="font-bold text-white">{selectedIds.size}</span> / {filteredList.length}</p><div className="flex gap-4"><button onClick={handleSelectAll} className="text-blue-400 hover:underline">Chọn tất cả</button><button onClick={handleDeselectAll} className="text-blue-400 hover:underline">Bỏ chọn</button></div></div>
-                        <div className="flex-grow space-y-2 overflow-y-auto pr-2">
-                            {filteredList.map(member => ( 
-                                <label key={member.userId} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer">
-                                    <input type="checkbox" checked={selectedIds.has(member.userId)} onChange={() => handleToggleSelect(member.userId)} className="form-checkbox h-5 w-5 bg-gray-900 border-gray-600 text-blue-500"/>
-                                    <Image src={member.avatar || '/avatar-default-crm.png'} alt={member.displayName} width={36} height={36} className="rounded-full" onError={(e) => { (e.target as HTMLImageElement).src = '/avatar-default-crm.png'; }}/>
-                                    <span className="text-white truncate text-sm">{member.displayName}</span>
-                                </label> 
+                    {/* Cột trái: Chọn thành viên */}
+                    <div className="w-full md:w-2/5 border-r border-gray-700 p-4 flex flex-col overflow-hidden bg-gray-800/30">
+                        <div className="relative mb-3">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            <input type="text" placeholder="Tìm tên hoặc SĐT..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600 outline-none focus:border-blue-500"/>
+                        </div>
+                        <div className="flex justify-between items-center text-xs mb-2">
+                            <span className="text-gray-400">Đã chọn: <b className="text-white">{selectedIds.size}</b></span>
+                            <div className="flex gap-3">
+                                <button onClick={() => setSelectedIds(new Set(filteredList.map(m => m.userId)))} className="text-blue-400 hover:underline">Tất cả</button>
+                                <button onClick={() => setSelectedIds(new Set())} className="text-blue-400 hover:underline">Bỏ chọn</button>
+                            </div>
+                        </div>
+                        <div className="flex-grow overflow-y-auto custom-scrollbar space-y-1 pr-2">
+                            {filteredList.map(member => (
+                                <label key={member.userId} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer transition-colors">
+                                    <input type="checkbox" checked={selectedIds.has(member.userId)} onChange={() => handleToggleSelect(member.userId)} className="form-checkbox h-4 w-4 text-blue-500 rounded border-gray-600 bg-gray-900"/>
+                                    <img src={member.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full object-cover" />
+                                    <span className="text-white text-sm truncate">{member.displayName}</span>
+                                </label>
                             ))}
                         </div>
                     </div>
-                    {/* Cột phải: Form nhập liệu */}
-                    <div className="w-full md:w-3/5 p-4 flex flex-col overflow-y-auto">
-                        
-                        {/* ✨ CẬP NHẬT: Input chọn thời gian */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
-                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
-                                <FiClock className="text-gray-400 mr-2" />
-                                <input 
-                                    type="datetime-local" 
-                                    value={sendTime}
-                                    onChange={(e) => setSendTime(e.target.value)}
-                                    className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
-                        </div>
-
-                        <h4 className="font-bold text-white mb-2">Soạn nội dung</h4>
-                        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                        
-                        <div className="mt-3">
-                            <input type="file" multiple accept="image/*" id="file-upload-mem" className="hidden" onChange={handleFileChange} />
-                            <label htmlFor="file-upload-mem" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed"><FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})</label>
-                            {selectedFiles.length > 0 && (<div className="mt-2 space-y-1">{selectedFiles.map((file, index) => (<div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm"><span className="text-gray-300 truncate max-w-[90%]">{file.name}</span><button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300"><FiTrash2 /></button></div>))}</div>)}
-                            {fileError && <p className="text-sm text-red-400 mt-1">{fileError}</p>}
-                        </div>
-
-                        {!hasEnoughPoints && selectedIds.size > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-3 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, có {currentUserPoints.toLocaleString()}.</p></div>)}
-                        
-                        <div className="mt-auto p-3 bg-gray-900/50 rounded-md text-sm text-gray-400 mt-4">
-                            <p className="font-bold text-gray-300 flex items-center gap-2"><FiHelpCircle/> Cú pháp Spin</p>
-                            <p>Dùng <code className="bg-gray-700 px-1 rounded">{`{a|b|c}`}</code> để random nội dung.</p>
-                            <p>Dùng các biến sau: <code className="bg-gray-700 px-1 rounded">%name%</code>, <code className="bg-gray-700 px-1 rounded">%phone%</code>, <code className="bg-gray-700 px-1 rounded">%gender%</code>, <code className="bg-gray-700 px-1 rounded">%birthday%</code> để cá nhân hóa.</p>
-                        </div>
+                    {/* Cột phải: Soạn tin nhắn */}
+                    <div className="w-full md:w-3/5 p-6 overflow-y-auto custom-scrollbar bg-gray-800">
+                        <MessageComposer 
+                            message={message} onChangeMessage={setMessage}
+                            selectedFiles={selectedFiles} onFilesChange={setSelectedFiles}
+                            timeSend={sendTime} onTimeSendChange={setSendTime}
+                        />
                     </div>
                 </div>
-                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center flex-shrink-0">
-                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <div className="flex gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button>
-                    <button onClick={handleSubmit} disabled={(!message.trim() && selectedFiles.length === 0) || selectedIds.size === 0 || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600"> <FiSend/> Gửi ({selectedIds.size})</button></div>
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center shrink-0">
+                    <div className="text-sm">
+                        <span className="text-gray-400">Chi phí: </span>
+                        <span className={`font-bold ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold">Hủy</button>
+                        <button 
+                            onClick={() => onSubmit(message, Array.from(selectedIds), selectedFiles, formatTimeForApi(sendTime))} 
+                            disabled={selectedIds.size === 0 || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded font-bold disabled:opacity-50 transition-all"
+                        >
+                            Gửi cho {selectedIds.size} người
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -290,6 +253,60 @@ const AddMemberModal = ({ onSubmit, onClose, pointCost, currentUserPoints }: { o
     );
 };
 
+// Modal Tạo Thẻ Mới (Copy từ tags.tsx sang để dùng nội bộ)
+const TagModal = ({ onClose, onSubmit }: { onClose: () => void; onSubmit: (name: string, color: string) => Promise<void>; }) => {
+    const [name, setName] = useState('');
+    const [color, setColor] = useState('#3B82F6');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const presetColors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#6B7280'];
+
+    const handleSubmit = async () => {
+        if (!name.trim()) { setError("Vui lòng nhập tên thẻ."); return; }
+        setIsSubmitting(true);
+        try { await onSubmit(name, color); onClose(); } 
+        catch (err: any) { setError(err.message || "Có lỗi xảy ra."); } 
+        finally { setIsSubmitting(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-sm border border-gray-700" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center rounded-t-lg">
+                    <h3 className="font-bold text-white">Tạo thẻ phân loại mới</h3>
+                    <button onClick={onClose}><FiX className="text-gray-400 hover:text-white"/></button>
+                </div>
+                <div className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Tên thẻ</label>
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Khách VIP..." className="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Màu sắc</label>
+                        <div className="flex gap-2 flex-wrap">
+                            {presetColors.map(c => (
+                                <button key={c} onClick={() => setColor(c)} className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                            ))}
+                            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-6 h-6 p-0 border-0 rounded-full overflow-hidden cursor-pointer" />
+                        </div>
+                    </div>
+                    <div className="p-3 bg-gray-900 rounded border border-gray-700 text-center">
+                        <span className="px-3 py-1 rounded-full text-white text-xs font-bold" style={{ backgroundColor: color }}>{name || 'Xem trước'}</span>
+                    </div>
+                    {error && <p className="text-xs text-red-400">{error}</p>}
+                </div>
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-2 rounded-b-lg">
+                    <button onClick={onClose} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">Hủy</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-bold flex items-center gap-2">
+                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus/>} Tạo thẻ
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Thêm thành viên vào thẻ phân loại
 const AddMembersToTagModal = ({ 
     members, 
@@ -297,7 +314,7 @@ const AddMembersToTagModal = ({
     onClose, 
     onSuccess 
 }: { 
-    members: any[]; // Danh sách thành viên nhóm hiện tại
+    members: any[]; 
     selectedAccount: any; 
     onClose: () => void; 
     onSuccess: (count: number, tagName: string) => void;
@@ -306,44 +323,58 @@ const AddMembersToTagModal = ({
     const [selectedTagId, setSelectedTagId] = useState<string>('');
     const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
     
-    // State tìm kiếm
     const [searchTag, setSearchTag] = useState('');
     const [searchMember, setSearchMember] = useState('');
     
     const [isLoadingTags, setIsLoadingTags] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // ✨ STATE MỚI: Mở modal tạo thẻ
+    const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
 
-    // 1. Tải danh sách Thẻ khi mở Modal
-    useEffect(() => {
-        const fetchTags = async () => {
-            if (!selectedAccount) return;
-            setIsLoadingTags(true);
-            try {
-                const token = localStorage.getItem('authToken');
-                const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/getListTagAPI`, {
-                    token,
-                    userId: selectedAccount.profile.userId
-                });
-                if (response.data.code === 0) {
-                    setTags(response.data.listData || []);
-                }
-            } catch (error) {
-                console.error("Lỗi tải tags:", error);
-            } finally {
-                setIsLoadingTags(false);
+    // Hàm tải danh sách thẻ (được tách ra để gọi lại sau khi tạo mới)
+    const fetchTags = useCallback(async () => {
+        if (!selectedAccount) return;
+        setIsLoadingTags(true);
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/getListTagAPI`, {
+                token,
+                userId: selectedAccount.profile.userId
+            });
+            if (response.data.code === 0) {
+                setTags(response.data.listData || []);
             }
-        };
-        fetchTags();
+        } catch (error) {
+            console.error("Lỗi tải tags:", error);
+        } finally {
+            setIsLoadingTags(false);
+        }
     }, [selectedAccount]);
 
-    // Filter
-    const filteredTags = tags.filter(t => t.name.toLowerCase().includes(searchTag.toLowerCase()));
-    const filteredMembers = members.filter(m => 
-        m.displayName.toLowerCase().includes(searchMember.toLowerCase()) || 
-        (m.userId && m.userId.includes(searchMember))
-    );
+    useEffect(() => { fetchTags(); }, [fetchTags]);
 
-    // Xử lý chọn
+    // ✨ HÀM MỚI: Xử lý tạo thẻ xong thì reload list và tự chọn thẻ vừa tạo
+    const handleCreateTagSubmit = async (name: string, color: string) => {
+        const token = localStorage.getItem('authToken');
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/saveTagAPI`, {
+            token,
+            userId: selectedAccount.profile.userId,
+            name,
+            color
+        });
+        if (response.data.code === 0) {
+            await fetchTags(); // Tải lại danh sách
+            // Tự động tìm và chọn thẻ vừa tạo (logic đơn giản là tìm thẻ có tên khớp)
+            // Lưu ý: API saveTagAPI thường không trả về ID ngay, nên ta refresh list
+        } else {
+            throw new Error(response.data.message);
+        }
+    };
+
+    const filteredTags = tags.filter(t => t.name.toLowerCase().includes(searchTag.toLowerCase()));
+    const filteredMembers = members.filter(m => m.displayName.toLowerCase().includes(searchMember.toLowerCase()) || (m.userId && m.userId.includes(searchMember)));
+
     const toggleMember = (id: string) => {
         const newSet = new Set(selectedMemberIds);
         newSet.has(id) ? newSet.delete(id) : newSet.add(id);
@@ -351,21 +382,16 @@ const AddMembersToTagModal = ({
     };
     const handleSelectAll = () => setSelectedMemberIds(new Set(filteredMembers.map(m => m.userId)));
 
-    // Submit
     const handleSubmit = async () => {
         if (!selectedTagId || selectedMemberIds.size === 0) return;
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem('authToken');
-            
-            // Lọc ra các object thành viên đã chọn để lấy thông tin chi tiết
-            const selectedMembersData = members
-                .filter(m => selectedMemberIds.has(m.userId))
-                .map(m => ({
-                    zalo_uid_friend: m.userId,
-                    zalo_name_friend: m.displayName,
-                    zalo_avatar_friend: m.avatar
-                }));
+            const selectedMembersData = members.filter(m => selectedMemberIds.has(m.userId)).map(m => ({
+                zalo_uid_friend: m.userId,
+                zalo_name_friend: m.displayName,
+                zalo_avatar_friend: m.avatar
+            }));
 
             const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/saveMemberTagAPI`, {
                 token,
@@ -390,8 +416,11 @@ const AddMembersToTagModal = ({
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            {/* Modal tạo thẻ lồng bên trong */}
+            {isCreateTagOpen && <TagModal onClose={() => setIsCreateTagOpen(false)} onSubmit={handleCreateTagSubmit} />}
+
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl flex flex-col h-[85vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiTag /> Thêm thành viên vào Thẻ phân loại</h3>
                     <button onClick={onClose}><FiX className="text-gray-400 hover:text-white" size={20}/></button>
                 </div>
@@ -399,37 +428,50 @@ const AddMembersToTagModal = ({
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
                     {/* CỘT TRÁI: Chọn Thẻ */}
                     <div className="w-full md:w-1/3 border-r border-gray-700 p-4 flex flex-col bg-gray-800/50">
-                        <label className="text-gray-300 font-bold mb-2 block text-sm">Bước 1: Chọn Thẻ đích</label>
-                        <div className="relative mb-2">
-                            <input type="text" placeholder="Tìm tên thẻ..." value={searchTag} onChange={e => setSearchTag(e.target.value)} className="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm"/>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-gray-300 font-bold text-sm">Bước 1: Chọn Thẻ</label>
+                            {/* ✨ NÚT THÊM MỚI */}
+                            <button onClick={() => setIsCreateTagOpen(true)} className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded shadow" title="Tạo thẻ mới">
+                                <FiPlus size={16} />
+                            </button>
                         </div>
-                        <div className="flex-grow overflow-y-auto space-y-1 custom-scrollbar">
+                        
+                        <div className="relative mb-2">
+                            <input type="text" placeholder="Tìm tên thẻ..." value={searchTag} onChange={e => setSearchTag(e.target.value)} className="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm outline-none focus:border-blue-500"/>
+                        </div>
+                        <div className="flex-grow overflow-y-auto space-y-2 custom-scrollbar pr-1">
                             {isLoadingTags ? <div className="text-center text-gray-500 py-4"><FiLoader className="animate-spin inline"/></div> : 
-                            filteredTags.length === 0 ? <div className="text-gray-500 italic text-sm">Chưa có thẻ nào.</div> :
+                            filteredTags.length === 0 ? <div className="text-gray-500 italic text-sm text-center py-4">Chưa có thẻ nào.</div> :
                             filteredTags.map(tag => (
-                                <div key={tag.id} onClick={() => setSelectedTagId(tag.id)} 
-                                    className={`p-2 rounded cursor-pointer flex justify-between items-center ${selectedTagId === tag.id ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-300'}`}>
-                                    <span className="truncate text-sm font-medium">{tag.name}</span>
-                                    {selectedTagId === tag.id && <FiCheckCircle />}
+                                <div 
+                                    key={tag.id} 
+                                    onClick={() => setSelectedTagId(tag.id)} 
+                                    className={`p-2 rounded cursor-pointer flex justify-between items-center border transition-all ${selectedTagId === tag.id ? 'bg-gray-700 border-blue-500 ring-1 ring-blue-500' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}
+                                >
+                                    {/* ✨ HIỂN THỊ MÀU NỀN BADGE GIỐNG TRANG TAGS */}
+                                    <span className="px-3 py-1 rounded-full text-white text-xs font-bold truncate max-w-[180px]" style={{ backgroundColor: tag.color || '#3B82F6' }}>
+                                        {tag.name}
+                                    </span>
+                                    {selectedTagId === tag.id && <FiCheckCircle className="text-blue-500" />}
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     {/* CỘT PHẢI: Chọn Thành Viên */}
-                    <div className="w-full md:w-2/3 p-4 flex flex-col">
+                    <div className="w-full md:w-2/3 p-4 flex flex-col bg-gray-800">
                         <label className="text-gray-300 font-bold mb-2 block text-sm">Bước 2: Chọn Thành viên ({selectedMemberIds.size})</label>
                         <div className="flex gap-2 mb-2">
-                            <input type="text" placeholder="Tìm thành viên nhóm..." value={searchMember} onChange={e => setSearchMember(e.target.value)} className="flex-1 bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm"/>
-                            <button onClick={handleSelectAll} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-blue-400 text-xs rounded">Tất cả</button>
+                            <input type="text" placeholder="Tìm thành viên nhóm..." value={searchMember} onChange={e => setSearchMember(e.target.value)} className="flex-1 bg-gray-700 text-white p-2 rounded border border-gray-600 text-sm outline-none focus:border-blue-500"/>
+                            <button onClick={handleSelectAll} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-blue-400 text-xs rounded border border-gray-600">Tất cả</button>
                         </div>
                         <div className="flex-grow overflow-y-auto space-y-1 custom-scrollbar pr-1">
                             {filteredMembers.map(m => (
-                                <label key={m.userId} className={`flex items-center gap-3 p-2 rounded cursor-pointer ${selectedMemberIds.has(m.userId) ? 'bg-blue-900/30 border border-blue-500/50' : 'hover:bg-gray-700 border border-transparent'}`}>
-                                    <input type="checkbox" checked={selectedMemberIds.has(m.userId)} onChange={() => toggleMember(m.userId)} className="w-4 h-4 rounded bg-gray-700 border-gray-600"/>
-                                    <img src={m.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full" onError={(e) => (e.target as HTMLImageElement).src = '/avatar-default-crm.png'}/>
+                                <label key={m.userId} className={`flex items-center gap-3 p-2 rounded cursor-pointer border ${selectedMemberIds.has(m.userId) ? 'bg-blue-900/20 border-blue-500/50' : 'hover:bg-gray-700 border-transparent'}`}>
+                                    <input type="checkbox" checked={selectedMemberIds.has(m.userId)} onChange={() => toggleMember(m.userId)} className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-offset-0"/>
+                                    <img src={m.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full border border-gray-600" onError={(e) => (e.target as HTMLImageElement).src = '/avatar-default-crm.png'}/>
                                     <div className="min-w-0">
-                                        <p className="text-sm text-gray-200 truncate">{m.displayName}</p>
+                                        <p className="text-sm text-gray-200 truncate font-medium">{m.displayName}</p>
                                         <p className="text-xs text-gray-500">{m.userId}</p>
                                     </div>
                                 </label>
@@ -438,8 +480,8 @@ const AddMembersToTagModal = ({
                     </div>
                 </div>
 
-                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded text-sm">Hủy</button>
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3 shrink-0">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded text-sm font-bold">Hủy</button>
                     <button onClick={handleSubmit} disabled={isSubmitting || !selectedTagId || selectedMemberIds.size === 0} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-sm flex items-center gap-2 disabled:opacity-50">
                         {isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Lưu vào thẻ
                     </button>

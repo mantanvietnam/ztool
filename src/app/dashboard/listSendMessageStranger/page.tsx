@@ -8,6 +8,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
+import MessageComposer from '@/components/MessageComposer';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 
@@ -86,206 +87,47 @@ interface CreateMessageModalProps {
 }
 
 // Popup tạo yêu cầu gửi tin (phiên bản nâng cấp)
-const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPoints }: CreateMessageModalProps) => {
+const CreateMessageRequestModal = ({ onClose, onSubmit, pointCost, currentUserPoints }: any) => {
     const [message, setMessage] = useState('');
     const [phoneList, setPhoneList] = useState('');
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState('');
-    const [phoneCount, setPhoneCount] = useState(0);
-    const [calculatedCost, setCalculatedCost] = useState(0);
-    const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
-    
-    // State cho thời gian gửi, mặc định là hiện tại
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const cleanedPhones = phoneList.split('\n').map(p => p.replace(/[\s.,]/g, '')).filter(p => p.length > 0);
+    const calculatedCost = cleanedPhones.length * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
-    // ✨ CONSTANT GIỚI HẠN FILE
-    const MAX_FILES = 10;
-    const MAX_SIZE_MB = 2;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-    useEffect(() => {
-        const cleanedPhones = phoneList.split('\n').map(phone => phone.replace(/[\s.,]/g, '')).filter(phone => phone.length > 0);
-        const count = cleanedPhones.length;
-        setPhoneCount(count);
-        setCalculatedCost(count * pointCost);
-        setError('');
-    }, [phoneList, pointCost]);
-
-    // ✨ CẬP NHẬT: Logic validate file
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const filesArray = Array.from(e.target.files);
-            const validFiles: File[] = [];
-            let validationError = '';
-
-            // 1. Kiểm tra tổng số lượng file (cũ + mới)
-            if (selectedFiles.length + filesArray.length > MAX_FILES) {
-                setError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
-                // Reset input để người dùng có thể chọn lại
-                e.target.value = '';
-                return;
-            }
-
-            filesArray.forEach(file => {
-                // 2. Kiểm tra định dạng (chỉ chấp nhận ảnh)
-                if (!file.type.startsWith('image/')) {
-                    validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`;
-                    return;
-                }
-
-                // 3. Kiểm tra dung lượng (Max 2MB)
-                if (file.size > MAX_SIZE_BYTES) {
-                    validationError = `File "${file.name}" quá lớn (${(file.size / 1024 / 1024).toFixed(2)}MB). Tối đa ${MAX_SIZE_MB}MB.`;
-                    return;
-                }
-
-                validFiles.push(file);
-            });
-
-            if (validationError) {
-                setError(validationError);
-            } else {
-                setError(''); // Xóa lỗi nếu chọn file hợp lệ
-            }
-
-            // Chỉ thêm các file hợp lệ
-            if (validFiles.length > 0) {
-                setSelectedFiles(prev => [...prev, ...validFiles]);
-            }
-
-            // Reset input để cho phép chọn lại cùng 1 file nếu lỡ xóa nhầm
-            e.target.value = '';
-        }
-    };
-
-    const handleRemoveFile = (index: number) => {
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-        // Xóa lỗi khi người dùng thao tác xóa bớt file
-        setError(''); 
-    };
-
     const handleSubmit = async () => {
-        if (isSubmitting) return;
-
-        if ((!message.trim() && selectedFiles.length === 0) || !phoneList.trim()) {
-            setError("Vui lòng nhập danh sách SĐT và (nội dung hoặc file ảnh).");
-            return;
-        }
-
-        if (!sendTime) {
-            setError("Vui lòng chọn thời gian gửi.");
-            return;
-        }
-
-        if (!hasEnoughPoints) {
-            setIsPointsModalOpen(true);
-            return;
-        }
-        
+        if (isSubmitting || cleanedPhones.length === 0 || !hasEnoughPoints) return;
         setIsSubmitting(true);
-        setError('');
-        try {
-            const cleanedPhones = phoneList.split('\n').map(phone => phone.replace(/[\s.,]/g, '')).filter(phone => phone.length > 0);
-            if (cleanedPhones.length === 0) {
-                throw new Error("Danh sách số điện thoại không hợp lệ.");
-            }
-
-            // Format thời gian trước khi submit
-            const formattedTime = formatTimeForApi(sendTime);
-            
-            await onSubmit(message, cleanedPhones, selectedFiles, formattedTime);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setIsSubmitting(false);
-        }
+        await onSubmit(message, cleanedPhones, selectedFiles, formatTimeForApi(sendTime));
+        setIsSubmitting(false);
     };
 
     return (
-        <>
-            {isPointsModalOpen && (
-                <InsufficientPointsModal 
-                    onClose={() => setIsPointsModalOpen(false)}
-                    requiredPoints={calculatedCost}
-                    currentPoints={currentUserPoints}
-                />
-            )}
-            <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-                <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Tạo yêu cầu gửi tin nhắn</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                        
-                        {/* Khu vực chọn thời gian gửi */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
-                            <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
-                                <FiClock className="text-gray-400 mr-2" />
-                                <input 
-                                    type="datetime-local" 
-                                    value={sendTime}
-                                    onChange={(e) => setSendTime(e.target.value)}
-                                    className="w-full bg-transparent text-white py-3 focus:outline-none placeholder-gray-500"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">* Mặc định là gửi ngay lập tức (thời gian hiện tại).</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Nội dung tin nhắn</label>
-                            <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                            
-                            <div className="mt-3">
-                                {/* ✨ CẬP NHẬT: Thêm accept="image/*" để chỉ hiện file ảnh */}
-                                <input type="file" multiple accept="image/*" id="file-upload" className="hidden" onChange={handleFileChange} />
-                                <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
-                                    <FiPaperclip /> Chọn ảnh ({selectedFiles.length}/{MAX_FILES})
-                                </label>
-                                
-                                {selectedFiles.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                        {selectedFiles.map((file, index) => (
-                                            <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
-                                                <span className="text-gray-300 truncate max-w-[80%]">
-                                                    {file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span>
-                                                </span>
-                                                <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300">
-                                                    <FiTrash2 />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <p className="text-xs text-gray-500 mt-1 italic">* Chỉ chấp nhận file ảnh (jpg, png...), tối đa {MAX_SIZE_MB}MB/file, tối đa {MAX_FILES} file.</p>
-                            </div>
-                            
-                            <div className="text-xs text-gray-400 bg-gray-900/50 p-3 rounded-md mt-2"><p className="font-bold mb-1">Hướng dẫn:</p><p>- Dùng <code className="bg-gray-700 px-1 rounded">{`{a|b|c}`}</code> để tạo spin nội dung.</p><p>- Dùng các biến sau: <code className="bg-gray-700 px-1 rounded">%name%</code>, <code className="bg-gray-700 px-1 rounded">%phone%</code>, <code className="bg-gray-700 px-1 rounded">%gender%</code>, <code className="bg-gray-700 px-1 rounded">%birthday%</code> để cá nhân hóa.</p></div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Danh sách số điện thoại (mỗi số 1 dòng)</label>
-                            <textarea rows={6} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="0912345678&#10;0987.654.321..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                             <div className="text-right text-xs text-gray-400 mt-1">Số lượng: {phoneCount}</div>
-                        </div>
-                        {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
-                    </div>
-                    <div className="p-4 bg-gray-900 flex justify-between items-center">
-                        <div className="text-sm">
-                            <span className="text-gray-400">Chi phí:</span>
-                            <span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span>
-                        </div>
-                        <button 
-                            onClick={handleSubmit} 
-                            disabled={isSubmitting} 
-                            className={`flex items-center gap-2 text-white font-bold py-2 px-4 rounded-md transition duration-300 ${!hasEnoughPoints && !isSubmitting ? 'bg-gray-600 hover:bg-gray-500' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                            {isSubmitting ? <FiLoader className="animate-spin"/> : <FiPlus />} Gửi yêu cầu
-                        </button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Tạo yêu cầu gửi tin</h3><button onClick={onClose}><FiX size={20}/></button></div>
+                <div className="p-6 max-h-[80vh] overflow-y-auto custom-scrollbar space-y-5">
+                    <MessageComposer 
+                        message={message} onChangeMessage={setMessage}
+                        selectedFiles={selectedFiles} onFilesChange={setSelectedFiles}
+                        timeSend={sendTime} onTimeSendChange={setSendTime}
+                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2 font-bold uppercase text-[11px]">Danh sách SĐT ({cleanedPhones.length})</label>
+                        <textarea rows={4} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="Mỗi số một dòng..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 outline-none text-sm"/>
                     </div>
                 </div>
+                <div className="p-4 bg-gray-900 flex justify-between items-center">
+                    <span className="text-yellow-400 font-bold">{calculatedCost.toLocaleString()} điểm</span>
+                    <button onClick={handleSubmit} disabled={isSubmitting || cleanedPhones.length === 0} className="bg-blue-600 px-6 py-2 rounded-md font-bold text-white transition disabled:bg-gray-600">
+                        {isSubmitting ? <FiLoader className="animate-spin"/> : "Gửi tin nhắn"}
+                    </button>
+                </div>
             </div>
-        </>
+        </div>
     );
 };
 

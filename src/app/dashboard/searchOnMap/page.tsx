@@ -9,6 +9,7 @@ import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload,
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import axios from 'axios';
+import MessageComposer from '@/components/MessageComposer';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 const MAP_SOURCE = process.env.NEXT_PUBLIC_MAP_SOURCE || 'osm';
@@ -120,105 +121,39 @@ const AddFriendModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints
     );
 };
 
-const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: { count: number; onClose: () => void; onSubmit: (message: string, files: File[], timeSend: string) => void; pointCost: number; currentUserPoints: number; }) => {
+const SendMessageModal = ({ count, onClose, onSubmit, pointCost, currentUserPoints }: any) => {
     const [message, setMessage] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [fileError, setFileError] = useState('');
-    
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const MAX_FILES = 10;
-    const MAX_SIZE_MB = 2;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
     const calculatedCost = count * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const filesArray = Array.from(e.target.files);
-            const validFiles: File[] = [];
-            let validationError = '';
-            if (selectedFiles.length + filesArray.length > MAX_FILES) {
-                setFileError(`Bạn chỉ được gửi tối đa ${MAX_FILES} file ảnh.`);
-                e.target.value = '';
-                return;
-            }
-            filesArray.forEach(file => {
-                if (!file.type.startsWith('image/')) { validationError = `File "${file.name}" không hợp lệ. Chỉ chấp nhận file ảnh.`; return; }
-                if (file.size > MAX_SIZE_BYTES) { validationError = `File "${file.name}" quá lớn. Tối đa ${MAX_SIZE_MB}MB.`; return; }
-                validFiles.push(file);
-            });
-            if (validationError) { setFileError(validationError); } else { setFileError(''); }
-            if (validFiles.length > 0) { setSelectedFiles(prev => [...prev, ...validFiles]); }
-            e.target.value = '';
-        }
-    };
-
-    const handleRemoveFile = (index: number) => {
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-        setFileError('');
-    };
-
     const handleSubmit = async () => {
-        if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints || !sendTime) return;
+        if ((!message.trim() && selectedFiles.length === 0) || isSubmitting || !hasEnoughPoints) return;
         setIsSubmitting(true);
-        
-        const formattedTime = formatTimeForApi(sendTime);
-        await onSubmit(message, selectedFiles, formattedTime);
-        
+        // Logic format thời gian và gọi API ở page.tsx là chuẩn xác nhất
+        await onSubmit(message, selectedFiles, formatTimeForApi(sendTime));
         setIsSubmitting(false);
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn hàng loạt</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                    <p className="text-gray-300">Bạn sẽ gửi tin nhắn đến <span className="font-bold text-white">{count}</span> số điện thoại đã tìm thấy.</p>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Thời gian gửi (Hẹn giờ)</label>
-                        <div className="flex items-center bg-gray-700 rounded-md border border-gray-600 px-3">
-                            <FiClock className="text-gray-400 mr-2" />
-                            <input 
-                                type="datetime-local" 
-                                value={sendTime}
-                                onChange={(e) => setSendTime(e.target.value)}
-                                className="w-full bg-transparent text-white py-2 focus:outline-none placeholder-gray-500"
-                            />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">* Để mặc định nếu muốn gửi ngay lập tức.</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Nội dung</label>
-                        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Nhập nội dung tin nhắn..." className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                    </div>
-
-                    <div className="mt-2">
-                        <input type="file" multiple accept="image/*" id="file-upload-map" className="hidden" onChange={handleFileChange} />
-                        <label htmlFor="file-upload-map" className="cursor-pointer inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-blue-400 px-3 py-2 rounded-md text-sm border border-gray-600 border-dashed transition-colors">
-                            <FiPaperclip /> Đính kèm ảnh ({selectedFiles.length}/{MAX_FILES})
-                        </label>
-                        {selectedFiles.length > 0 && (
-                            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                                {selectedFiles.map((file, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-gray-900/50 p-2 rounded-md text-sm">
-                                        <span className="text-gray-300 truncate max-w-[80%]">{file.name} <span className="text-gray-500 text-xs">({(file.size / 1024).toFixed(0)} KB)</span></span>
-                                        <button onClick={() => handleRemoveFile(index)} className="text-red-400 hover:text-red-300"><FiTrash2 /></button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {fileError && <p className="text-sm text-red-400 mt-1 font-semibold">{fileError}</p>}
-                    </div>
-                    {!hasEnoughPoints && count > 0 && (<div className="bg-red-500/10 border-l-4 border-red-500 text-red-300 p-3 rounded-md mt-2 text-sm"><p>Không đủ điểm. Cần {calculatedCost.toLocaleString()}, bạn đang có {currentUserPoints.toLocaleString()}.</p><Link href="/dashboard/billing" className="font-bold text-blue-400 hover:underline mt-1 block">Nạp thêm điểm?</Link></div>)}
-                    <PersonalizationGuide />
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white">Gửi tin nhắn hàng loạt đến <span className="font-bold text-white">{count}</span> SĐT</h3><button onClick={onClose}><FiX size={20}/></button></div>
+                <div className="p-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                    <MessageComposer 
+                        message={message} onChangeMessage={setMessage}
+                        selectedFiles={selectedFiles} onFilesChange={setSelectedFiles}
+                        timeSend={sendTime} onTimeSendChange={setSendTime}
+                    />
                 </div>
                 <div className="p-4 bg-gray-900 flex justify-between items-center">
-                    <div className="text-sm"><span className="text-gray-400">Chi phí:</span><span className={`font-bold ml-2 ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span></div>
-                    <button onClick={handleSubmit} disabled={isSubmitting || (!message.trim() && selectedFiles.length === 0) || !hasEnoughPoints || !sendTime} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 disabled:bg-gray-600 disabled:cursor-not-allowed">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiMessageSquare/>} Gửi yêu cầu</button>
+                    <span className="text-yellow-400 font-bold">{calculatedCost.toLocaleString()} điểm</span>
+                    <button onClick={handleSubmit} disabled={isSubmitting || !hasEnoughPoints} className="bg-blue-600 px-5 py-2 rounded-md font-bold text-white transition disabled:bg-gray-600">
+                        {isSubmitting ? <FiLoader className="animate-spin"/> : "Gửi tin nhắn"}
+                    </button>
                 </div>
             </div>
         </div>
@@ -460,7 +395,13 @@ export default function SearchOnMapPage() {
 
     const handleSearch = async () => { 
         if (!keyword) { setError("Vui lòng nhập từ khóa tìm kiếm."); return; } 
-        if (!address && !coords) { setError("Vui lòng nhập địa chỉ hoặc lấy vị trí GPS."); return; } 
+        if (!address && !coords) { setError("Vui lòng nhập địa chỉ và lấy vị trí GPS."); return; } 
+        if (address && !coords) {
+            setError("Vui lòng chọn một địa chỉ cụ thể từ danh sách gợi ý để lấy tọa độ chính xác.");
+            // Tự động focus lại vào input địa chỉ để người dùng chọn
+            addressInputRef.current?.focus();
+            return;
+        }
         
         if (user && user.point < searchCost) {
             setError(`Bạn không đủ điểm. Phí tìm kiếm: ${searchCost.toLocaleString()} điểm (Hiện có: ${user.point.toLocaleString()}).`);
@@ -609,8 +550,8 @@ export default function SearchOnMapPage() {
         <div className="flex-1 p-6 md:p-8 text-white">
             {successInfo && <SuccessModal {...successInfo} onClose={() => setSuccessInfo(null)} onViewProgress={() => router.push(successInfo.redirectUrl)} />}
             
-            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg, files, timeSend) => handleSubmitAction(msg, 'message', files, timeSend)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
-            
+            {modalState === 'sendMessage' && <SendMessageModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg: string, files: File[], timeSend: string) => handleSubmitAction(msg, 'message', files, timeSend)} pointCost={pointCosts?.send_mess_stranger || 0} currentUserPoints={user?.point || 0}/>}
+
             {modalState === 'addFriend' && <AddFriendModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(msg) => handleSubmitAction(msg, 'addFriend')} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
             {modalState === 'addToGroup' && <AddToGroupModal count={phoneCount} onClose={() => setModalState('none')} onSubmit={(groupId) => handleSubmitAction(groupId, 'addToGroup')} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0}/>}
 
@@ -639,8 +580,12 @@ export default function SearchOnMapPage() {
                                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                                 type="text" 
                                 placeholder="Nhập địa chỉ (VD: Quận 1, TP HCM) hoặc dùng GPS" 
-                                className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={`w-full bg-gray-700 p-3 rounded-md border ${coords ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                             />
+                            {/* Hiển thị tích xanh nếu đã chọn được tọa độ */}
+                            {coords && (
+                                <FiCheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" title="Địa chỉ đã được xác thực tọa độ" />
+                            )}
                             {showSuggestions && suggestions.length > 0 && (
                                 <ul className="absolute z-10 w-full bg-gray-700 border border-gray-600 rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
                                     {suggestions.map((item) => (
