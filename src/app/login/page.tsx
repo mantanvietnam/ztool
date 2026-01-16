@@ -148,7 +148,14 @@ export default function LoginPage() {
                 localStorage.setItem('authToken', authToken);
                 localStorage.setItem('authTokenAPI', authTokenAPI);
                 localStorage.setItem('userPhone', userInfo.phone);
-                localStorage.setItem('affiliate_code', userInfo.affiliate_code);
+                
+                if (userInfo.affiliate_code) {
+                    localStorage.setItem('affiliate_code', userInfo.affiliate_code);
+                } else {
+                    // Quan trọng: Nếu user này KHÔNG có mã, hãy xóa mã cũ (nếu có) trong localStorage
+                    // Để tránh trường hợp đăng nhập tài khoản A (có mã) xong log out, đăng nhập tài khoản B (không mã) nhưng vẫn dính mã của A
+                    localStorage.removeItem('affiliate_code');
+                }
 
                 // 2. ✨ CẬP NHẬT: Lưu Proxy (Sử dụng hàm helper)
                 saveProxyToStorage(userInfo);
