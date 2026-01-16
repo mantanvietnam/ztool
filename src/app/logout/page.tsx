@@ -10,6 +10,10 @@ export default function LogoutPage() {
     useEffect(() => {
         // Xóa token đăng nhập chính của ứng dụng
         localStorage.removeItem('authToken');
+        localStorage.removeItem('authTokenAPI');
+        localStorage.removeItem('userPhone');
+        localStorage.removeItem('affiliate_code');
+        localStorage.removeItem('userProxy');
         
         // Xóa danh sách tài khoản Zalo đã lưu
         localStorage.removeItem('zaloAccounts');

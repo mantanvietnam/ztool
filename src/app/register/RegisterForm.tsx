@@ -64,6 +64,7 @@ export default function RegisterForm() {
                 localStorage.setItem('authToken', userInfo.token);
                 localStorage.setItem('authTokenAPI', userInfo.token_api);
                 localStorage.setItem('userPhone', userInfo.phone);
+                localStorage.setItem('affiliate_code', userInfo.affiliate_code);
 
                 // 2. ✨ CẬP NHẬT: Xử lý và lưu Proxy
                 if (userInfo.proxy) {

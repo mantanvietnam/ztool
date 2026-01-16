@@ -38,7 +38,7 @@ export default function Footer() {
                                     <FiFacebook size={20}/>
                                     <span>Fanpage</span>
                                 </a>
-                                <a href="https://www.youtube.com/@Ztool-i9n" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-red-600/10 border border-red-600/30 px-4 py-2 rounded-lg text-red-400 hover:bg-red-600 hover:text-white transition-all">
+                                <a href="https://www.youtube.com/@ztoolaivn" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-red-600/10 border border-red-600/30 px-4 py-2 rounded-lg text-red-400 hover:bg-red-600 hover:text-white transition-all">
                                     <FiYoutube size={20}/>
                                     <span>Youtube</span>
                                 </a>
