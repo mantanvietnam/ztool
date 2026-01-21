@@ -210,7 +210,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     <SidebarLink icon={<FiSend size={20} />} text="Yêu cầu kết bạn" href="/dashboard/listWaitingFriendApproval" active={pathname === '/dashboard/listWaitingFriendApproval'} onClick={closeMobileMenu} />
                     <SidebarLink icon={<FiMessageSquare size={20} />} text="Nhắn tin người lạ" href="/dashboard/listSendMessageStranger" active={pathname === '/dashboard/listSendMessageStranger'} onClick={closeMobileMenu} />
                     <SidebarLink icon={<FiUsers size={20} />} text="Nhắn tin bạn bè" href="/dashboard/listFriendZalo" active={pathname === '/dashboard/listFriendZalo'} onClick={closeMobileMenu} />
-                    <SidebarLink icon={<FiUserCheck size={20} />} text="Tương tác nhóm" href="/dashboard/listGroupZalo" active={pathname === '/dashboard/listGroupZalo'} onClick={closeMobileMenu} />
+                    <SidebarLink icon={<FiUserCheck size={20} />} text="Nhóm - Cộng đồng" href="/dashboard/listGroupZalo" active={pathname === '/dashboard/listGroupZalo'} onClick={closeMobileMenu} />
                     <SidebarLink icon={<FiTag size={20} />} text="Thẻ phân loại" href="/dashboard/tags" active={pathname === '/dashboard/tags'} onClick={closeMobileMenu} />
                     <SidebarLink icon={<FiMapPin size={20} />} text="Tìm kiếm bản đồ" href="/dashboard/searchOnMap" active={pathname === '/dashboard/searchOnMap'} onClick={closeMobileMenu} />
 

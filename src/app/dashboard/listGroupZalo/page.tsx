@@ -108,17 +108,48 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    const isAllSelected = filteredList.length > 0 && filteredList.every((g: any) => selectedIds.has(g.id));
+
+    const handleSelectAll = () => {
+        const next = new Set(selectedIds);
+        if (isAllSelected) {
+            // Nếu đang chọn hết -> Bỏ chọn các nhóm trong danh sách lọc hiện tại
+            filteredList.forEach((g: any) => next.delete(g.id));
+        } else {
+            // Nếu chưa chọn hết -> Chọn tất cả các nhóm trong danh sách lọc hiện tại
+            filteredList.forEach((g: any) => next.add(g.id));
+        }
+        setSelectedIds(next);
+    };
+    
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl flex flex-col h-[90vh]" onClick={e => e.stopPropagation()}>
+                {/* Header giữ nguyên */}
                 <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-white text-lg">Gửi tin nhắn nhóm hàng loạt</h3>
                     <button onClick={onClose}><FiX size={20} className="text-white"/></button>
                 </div>
+                
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-                    {/* Cột trái chọn nhóm giữ nguyên logic của bạn */}
+                    {/* Cột trái chọn nhóm */}
                     <div className="w-full md:w-2/5 border-r border-gray-700 p-4 flex flex-col overflow-hidden">
                         <input type="text" placeholder="Tìm kiếm nhóm..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-700 text-white p-2 rounded mb-4 outline-none border border-gray-600"/>
+                        
+                        {/* ✨ MỚI: Checkbox Chọn tất cả */}
+                        <div className="flex items-center gap-3 p-2 mb-2 border-b border-gray-600 pb-2">
+                            <input 
+                                type="checkbox" 
+                                checked={isAllSelected} 
+                                onChange={handleSelectAll}
+                                disabled={filteredList.length === 0}
+                                className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800 cursor-pointer"
+                            />
+                            <span className="text-white font-bold text-sm">
+                                Chọn tất cả ({filteredList.length} nhóm)
+                            </span>
+                        </div>
+
                         <div className="flex-grow overflow-y-auto custom-scrollbar space-y-2 pr-2">
                             {filteredList.map((group: any) => (
                                 <label key={group.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer">
@@ -126,13 +157,17 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
                                         const next = new Set(selectedIds);
                                         next.has(group.id) ? next.delete(group.id) : next.add(group.id);
                                         setSelectedIds(next);
-                                    }} className="form-checkbox h-5 w-5 text-blue-500"/>
+                                    }} className="form-checkbox h-5 w-5 text-blue-500 rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800"/>
                                     <span className="text-white truncate text-sm">{group.name}</span>
                                 </label>
                             ))}
+                            {filteredList.length === 0 && (
+                                <p className="text-gray-500 text-center text-sm py-4">Không tìm thấy nhóm nào.</p>
+                            )}
                         </div>
                     </div>
-                    {/* Cột phải soạn tin dùng Composer */}
+                    
+                    {/* Cột phải soạn tin (Giữ nguyên) */}
                     <div className="w-full md:w-3/5 p-6 overflow-y-auto custom-scrollbar">
                         <MessageComposer 
                             message={message} onChangeMessage={setMessage}
@@ -141,6 +176,8 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
                         />
                     </div>
                 </div>
+                
+                {/* Footer giữ nguyên */}
                 <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center shrink-0">
                     <div className="text-sm">
                         <span className="text-gray-400">Đã chọn: <b className="text-white">{selectedIds.size}</b> nhóm. Chi phí: </span>
