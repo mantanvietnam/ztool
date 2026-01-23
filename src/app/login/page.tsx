@@ -200,10 +200,19 @@ export default function LoginPage() {
                         <input type="tel" placeholder="Số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
                     </div>
 
-                    <div className="relative">
-                        <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input type={showPassword ? 'text' : 'password'} placeholder="Mật khẩu" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-10 py-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">{showPassword ? <FiEyeOff /> : <FiEye />}</button>
+                    <div> {/* Bọc ô password vào div để căn chỉnh link Quên mật khẩu */}
+                        <div className="relative">
+                            <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type={showPassword ? 'text' : 'password'} placeholder="Mật khẩu" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-10 py-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">{showPassword ? <FiEyeOff /> : <FiEye />}</button>
+                        </div>
+                        
+                        {/* ✨ THÊM LIÊN KẾT QUÊN MẬT KHẨU TẠI ĐÂY */}
+                        <div className="flex justify-end mt-2">
+                            <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300 hover:underline">
+                                Quên mật khẩu?
+                            </Link>
+                        </div>
                     </div>
 
                     <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 disabled:bg-gray-500">
