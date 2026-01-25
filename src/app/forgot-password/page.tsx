@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
                     router.push('/login');
                 }, 2000);
             } else {
-                setError(response.data.messages?.[0]?.text || 'Mã OTP không đúng hoặc hết hạn.');
+                setError(response.data.mess || 'Mã OTP không đúng hoặc hết hạn.');
             }
         } catch (err) {
             console.error(err);
