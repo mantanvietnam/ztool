@@ -44,7 +44,28 @@ const JobStatsModal = ({ job, onClose }: { job: AddMemberJob, onClose: () => voi
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white flex items-center gap-2"><FiBarChart2 /> Thống kê chi tiết</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
-                <div className="p-6 space-y-4 overflow-y-auto"><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Nhóm:</span><span className="text-gray-200 font-bold">{job.group_name || 'Không rõ'}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thành viên:</span><span className="text-gray-200">{job.group_total_members?.toLocaleString() || 'N/A'}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div><div><h4 className="font-semibold text-white mb-2">Chờ xử lý ({job.list_process.length})</h4><textarea readOnly value={job.list_process.join('\n')} rows={5} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-green-400 mb-2">Thêm thành công ({job.list_done.length})</h4><textarea readOnly value={job.list_done.join('\n')} rows={5} className="w-full bg-gray-900 text-green-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-red-400 mb-2">Thêm lỗi ({job.list_error.length})</h4><textarea readOnly value={job.list_error.join('\n')} rows={5} className="w-full bg-gray-900 text-red-400 text-sm p-2 rounded-md border border-gray-600"/></div></div>
+                <div className="p-6 space-y-4 overflow-y-auto">
+                    <div className="text-sm">
+                        <span className="font-semibold text-gray-400 w-40 inline-block">ID yêu cầu:</span>
+                        <span className="text-gray-200 font-bold">{job.id}</span>
+                    </div>
+                    <div className="text-sm">
+                        <span className="font-semibold text-gray-400 w-40 inline-block">Nhóm:</span>
+                        <span className="text-gray-200 font-bold">{job.group_name || 'Không rõ'}</span>
+                    </div>
+                    <div className="text-sm">
+                        <span className="font-semibold text-gray-400 w-40 inline-block">Thành viên:</span>
+                        <span className="text-gray-200">{job.group_total_members?.toLocaleString() || 'N/A'}</span>
+                    </div>
+                    <div className="text-sm">
+                        <span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span>
+                        <span className="text-gray-200">{job.create_at}</span>
+                    </div>
+                    <div className="text-sm">
+                        <span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span>
+                        <span className="text-gray-200">{job.update_at}</span>
+                    </div>
+                    <div><h4 className="font-semibold text-white mb-2">Chờ xử lý ({job.list_process.length})</h4><textarea readOnly value={job.list_process.join('\n')} rows={5} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-green-400 mb-2">Thêm thành công ({job.list_done.length})</h4><textarea readOnly value={job.list_done.join('\n')} rows={5} className="w-full bg-gray-900 text-green-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-red-400 mb-2">Thêm lỗi ({job.list_error.length})</h4><textarea readOnly value={job.list_error.join('\n')} rows={5} className="w-full bg-gray-900 text-red-400 text-sm p-2 rounded-md border border-gray-600"/></div></div>
                 <div className="p-4 bg-gray-900 flex justify-end"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md">Đóng</button></div>
             </div>
         </div>

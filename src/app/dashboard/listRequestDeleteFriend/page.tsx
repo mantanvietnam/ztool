@@ -32,6 +32,7 @@ const JobStatsModal = ({ job, onClose }: { job: DeleteFriendJob, onClose: () => 
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button>
                 </div>
                 <div className="p-6 space-y-4 overflow-y-auto">
+                    <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">ID yêu cầu:</span><span className="text-gray-200">{job.id}</span></div>
                     <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div>
                     <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div>
                     

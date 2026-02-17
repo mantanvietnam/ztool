@@ -56,6 +56,7 @@ const JobStatsModal = ({ job, onClose }: { job: AddFriendJob, onClose: () => voi
             <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 bg-gray-700 flex justify-between items-center"><h3 className="font-bold text-white flex items-center gap-2"><FiBarChart2 /> Thống kê chi tiết</h3><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-600 text-white"><FiX size={20}/></button></div>
                 <div className="p-6 space-y-4 overflow-y-auto">
+                    <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">ID yêu cầu:</span><span className="text-gray-200">{job.id}</span></div>
                     <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div>
                     <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div>
                     <div><h4 className="font-semibold text-white mb-2">Lời mời đã gửi</h4><textarea readOnly value={job.message} rows={3} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div>
