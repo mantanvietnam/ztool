@@ -157,7 +157,7 @@ export default function DashboardHomePage() {
             setIsLoadingGroups(true);
             try {
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }),
@@ -169,7 +169,7 @@ export default function DashboardHomePage() {
                     setGroupCount(0);
                 }
             } catch (error) {
-                console.error("Lỗi get-groups-with-details:", error);
+                console.error("Lỗi get-groups:", error);
                 setGroupCount(0);
             } finally {
                 setIsLoadingGroups(false);
