@@ -77,7 +77,7 @@ const SuccessNotification = ({ message, onClose }: { message: string; onClose: (
 
 const AddFriendModal = ({ onClose, onSubmit, pointCost, currentUserPoints }: { onClose: () => void; onSubmit: (message: string, phones: string[]) => Promise<void>; pointCost: number; currentUserPoints: number; }) => {
     const [phoneList, setPhoneList] = useState('');
-    const [message, setMessage] = useState('Xin chào {tôi|mình} là %name%, {mình|tôi} kết bạn nhé!');
+    const [message, setMessage] = useState('Xin chào %name%, {mình|chúng ta} kết bạn nhé. Tôi biết bạn qua số điện thoại');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [phoneCount, setPhoneCount] = useState(0);
