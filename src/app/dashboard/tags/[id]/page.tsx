@@ -85,12 +85,27 @@ const AddMemberModal = ({
     useEffect(() => {
         const fetchFriends = async () => {
             if (!selectedAccount) return;
-            setLoading(true);
+            
+            const myId = selectedAccount.profile.userId;
+            const cacheKey = `ztool_friends_${myId}`;
+
+            // 1. ĐỌC CACHE & HIỂN THỊ POPUP NGAY LẬP TỨC (0 Giây)
+            let cachedFriends: ZaloFriend[] = [];
+            const cachedData = localStorage.getItem(cacheKey);
+            if (cachedData) {
+                cachedFriends = JSON.parse(cachedData);
+                setFriends(cachedFriends);
+                setLoading(false); // Có Cache -> Nhả vòng xoay loading ngay lập tức
+            } else {
+                setLoading(true); // Nếu người dùng mới cứng chưa có Cache thì mới xoay
+            }
+
             try {
                 const savedProxyStr = localStorage.getItem('userProxy');
                 const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
                 const { cookie, imei, userAgent } = selectedAccount;
 
+                // 2. GỌI API LẤY DANH SÁCH MỚI NHẤT CHẠY NGẦM
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -99,10 +114,25 @@ const AddMemberModal = ({
 
                 const data = await response.json();
                 if (!response.ok || !data.success) throw new Error(data.message || 'Lấy danh sách bạn bè thất bại.');
-                setFriends(data.friends || []);
+                
+                const newFriends = data.friends || [];
+
+                // 3. KHIÊN BẢO VỆ SILENT LIMIT (Chống mất Cache)
+                if (newFriends.length === 0 && cachedFriends.length > 10) {
+                    console.warn("🛡️ API Zalo trả về 0 bạn bè. Kích hoạt khiên bảo vệ Cache!");
+                    return; 
+                }
+
+                // 4. CẬP NHẬT CACHE & GIAO DIỆN
+                localStorage.setItem(cacheKey, JSON.stringify(newFriends));
+                setFriends(newFriends);
+                
             } catch (err: any) {
                 console.error("Lỗi tải bạn bè:", err);
-                setError(err.message || "Không thể tải danh sách bạn bè.");
+                // Chỉ báo lỗi đỏ lên màn hình nếu chưa có tí Cache nào để dùng tạm
+                if (cachedFriends.length === 0) {
+                    setError(err.message || "Không thể tải danh sách bạn bè.");
+                }
             } finally {
                 setLoading(false);
             }

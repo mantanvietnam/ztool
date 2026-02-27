@@ -264,7 +264,77 @@ export default function ListFriendZaloPage() {
     const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
 
     useEffect(() => { setIsClient(true); }, []);
-    useEffect(() => { if (!isClient || !selectedAccount) { if (isClient && !selectedAccount) { setFriends([]); setLoading(false); } return; } const fetchFriends = async () => { setLoading(true); setError(null); try { const { cookie, imei, userAgent } = selectedAccount; const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }), }); const data = await response.json(); if (!response.ok || !data.success) throw new Error(data.message || 'Lấy danh sách bạn bè thất bại.'); const authToken = localStorage.getItem('authToken'); if (authToken && data.friends && data.friends.length > 0) { try { await axios.post( `${process.env.NEXT_PUBLIC_API_URL}/apis/saveZaloAccAPI`, { token: authToken, listData: data.friends, userId: selectedAccount.profile.userId } ); } catch (dbError: any) { console.error("Lỗi khi lưu danh sách bạn bè vào DB:", dbError.message); } } setFriends(data.friends || []); } catch (err: any) { setError(err.message); } finally { setLoading(false); } }; fetchFriends(); }, [selectedAccount, isClient, removeAccount]);
+    
+    useEffect(() => { 
+        if (!isClient || !selectedAccount) { 
+            if (isClient && !selectedAccount) { setFriends([]); setLoading(false); } 
+            return; 
+        } 
+
+        const fetchFriends = async () => { 
+            setError(null); 
+            const myId = selectedAccount.profile.userId;
+            const cacheKey = `ztool_friends_${myId}`;
+            
+            // 1. ĐỌC CACHE VÀ HIỂN THỊ GIAO DIỆN NGAY LẬP TỨC
+            let cachedFriends: Friend[] = [];
+            const cachedData = localStorage.getItem(cacheKey);
+            if (cachedData) {
+                cachedFriends = JSON.parse(cachedData);
+                setFriends(cachedFriends);
+                setLoading(false); // Có Cache là nhả giao diện ra ngay lập tức
+            } else {
+                setLoading(true); // Không có cache mới hiện vòng xoay xoay
+            }
+
+            try { 
+                const { cookie, imei, userAgent } = selectedAccount; 
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }), 
+                }); 
+                const data = await response.json(); 
+                
+                if (!response.ok || !data.success) throw new Error(data.message || 'Lấy danh sách bạn bè thất bại.'); 
+                
+                const newFriends = data.friends || [];
+
+                // 2. KHIÊN BẢO VỆ SILENT LIMIT CỦA ZALO
+                if (newFriends.length === 0 && cachedFriends.length > 10) {
+                    console.warn("🛡️ API Zalo trả về 0 bạn bè. Kích hoạt khiên bảo vệ Cache!");
+                    return; // Thoát luôn, giữ nguyên Cache hiển thị
+                }
+
+                // 3. CẬP NHẬT UI & LƯU CACHE MỚI NHẤT
+                setFriends(newFriends);
+                localStorage.setItem(cacheKey, JSON.stringify(newFriends));
+
+                // 4. LƯU ĐỒNG BỘ VÀO DATABASE CỦA PHP
+                const authToken = localStorage.getItem('authToken'); 
+                if (authToken && newFriends.length > 0) { 
+                    try { 
+                        await axios.post( 
+                            `${process.env.NEXT_PUBLIC_API_URL}/apis/saveZaloAccAPI`, 
+                            { token: authToken, listData: newFriends, userId: myId } 
+                        ); 
+                    } catch (dbError: any) { 
+                        console.error("Lỗi khi lưu danh sách bạn bè vào DB:", dbError.message); 
+                    } 
+                } 
+            } catch (err: any) { 
+                // Chỉ hiện lỗi nếu không có dữ liệu Cache để hiển thị
+                if (friends.length === 0 && cachedFriends.length === 0) {
+                    setError(err.message); 
+                }
+            } finally { 
+                setLoading(false); 
+            } 
+        }; 
+        
+        fetchFriends(); 
+    }, [selectedAccount, isClient, removeAccount]);
+    
     const friendStats = useMemo(() => { if (!isClient) return { total: 0, male: 0, female: 0 }; const maleCount = friends.filter(f => f.gender === 0).length; const femaleCount = friends.filter(f => f.gender === 1).length; return { total: friends.length, male: maleCount, female: femaleCount, }; }, [friends, isClient]);
     const filteredAndSortedFriends = useMemo(() => { return friends .filter(friend => friend.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || (friend.phoneNumber && friend.phoneNumber.includes(searchTerm))) .sort((a, b) => a.displayName.localeCompare(b.displayName)); }, [friends, searchTerm]);
     const toggleMenu = (userId: string) => { setActiveMenu(prev => (prev === userId ? null : userId)); };

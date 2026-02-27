@@ -94,88 +94,80 @@ export default function DashboardHomePage() {
     const savedProxyStr = localStorage.getItem('userProxy');
     const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
 
-    // --- Effect 1: Gọi API lấy danh sách bạn bè (NodeJS) ---
+    // --- GỘP EFFECT 1, 2, 3: ĐỌC CACHE & GỌI API NGẦM (SMART CACHE) ---
     useEffect(() => {
-        const fetchFriendCount = async () => {
-            if (!selectedAccount) { setFriendCount(0); return; }
-            setIsLoadingFriends(true);
-            try {
-                const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }),
-                });
-                const data = await response.json();
-                if (data.success && Array.isArray(data.friends)) {
-                    setFriendCount(data.friends.length);
-                } else {
-                    setFriendCount(0);
+        const fetchDashboardZaloData = async () => {
+            if (!selectedAccount) { 
+                setFriendCount(0); setWaitingCount(0); setGroupCount(0); 
+                return; 
+            }
+
+            const myId = selectedAccount.profile.userId;
+            const { cookie, imei, userAgent } = selectedAccount;
+            const payload = { cookie, imei, userAgent, proxy: savedProxy };
+
+            // 1. ĐỌC CACHE VÀ HIỂN THỊ GIAO DIỆN NGAY LẬP TỨC
+            let hasFriendsCache = false;
+            let hasGroupsCache = false;
+
+            // Đọc Cache Bạn bè
+            const cachedFriendsStr = localStorage.getItem(`ztool_friends_${myId}`);
+            if (cachedFriendsStr) {
+                const cachedFriends = JSON.parse(cachedFriendsStr);
+                setFriendCount(cachedFriends.length);
+                hasFriendsCache = true;
+            }
+
+            // Đọc Cache Nhóm
+            const cachedGroupsStr = localStorage.getItem(`ztool_groups_${myId}`);
+            if (cachedGroupsStr) {
+                const cachedGroups = JSON.parse(cachedGroupsStr);
+                setGroupCount(cachedGroups.length);
+                hasGroupsCache = true;
+            }
+
+            // Bật loading nếu CHƯA CÓ CACHE (Nếu có rồi thì bỏ qua loading, hiện số luôn)
+            if (!hasFriendsCache) setIsLoadingFriends(true);
+            setIsLoadingWaiting(true); // Chờ đồng ý chưa làm cache nên vẫn bật loading
+            if (!hasGroupsCache) setIsLoadingGroups(true);
+
+            // 2. GỌI API NGẦM ĐỂ CẬP NHẬT SỐ LIỆU MỚI NHẤT
+            Promise.all([
+                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                }).then(res => res.json()).catch(() => ({ success: false })),
+                
+                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                }).then(res => res.json()).catch(() => ({ success: false })),
+                
+                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                }).then(res => res.json()).catch(() => ({ success: false }))
+            ]).then(([friendsData, requestsData, groupsData]) => {
+                // Xử lý Bạn bè
+                if (friendsData.success && Array.isArray(friendsData.friends)) {
+                    setFriendCount(friendsData.friends.length);
+                    localStorage.setItem(`ztool_friends_${myId}`, JSON.stringify(friendsData.friends));
                 }
-            } catch (error) {
-                console.error("Lỗi get-friends:", error);
-                setFriendCount(0);
-            } finally {
+                
+                // Xử lý Chờ đồng ý
+                if (requestsData.success && requestsData.requests && typeof requestsData.requests === 'object') {
+                    setWaitingCount(Object.keys(requestsData.requests).length);
+                }
+                
+                // Xử lý Nhóm (Chỉ cập nhật số, vì chi tiết nhóm có API riêng dạng batch bên trang nhóm)
+                if (groupsData.success && Array.isArray(groupsData.groups)) {
+                    setGroupCount(groupsData.groups.length);
+                }
+            }).finally(() => {
                 setIsLoadingFriends(false);
-            }
-        };
-        fetchFriendCount();
-    }, [selectedAccount]);
-
-    // --- Effect 2: Gọi API lấy danh sách chờ đồng ý (NodeJS) ---
-    useEffect(() => {
-        const fetchWaitingCount = async () => {
-            if (!selectedAccount) { setWaitingCount(0); return; }
-            setIsLoadingWaiting(true);
-            try {
-                const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy }),
-                });
-                const data = await response.json();
-                if (data.success && data.requests && typeof data.requests === 'object') {
-                    setWaitingCount(Object.keys(data.requests).length);
-                } else {
-                    setWaitingCount(0);
-                }
-            } catch (error) {
-                console.error("Lỗi get-sent-friend-requests:", error);
-                setWaitingCount(0);
-            } finally {
                 setIsLoadingWaiting(false);
-            }
-        };
-        fetchWaitingCount();
-    }, [selectedAccount]);
-
-    // --- Effect 3: Gọi API lấy danh sách nhóm (NodeJS) ---
-    useEffect(() => {
-        const fetchGroupCount = async () => {
-            if (!selectedAccount) { setGroupCount(0); return; }
-            setIsLoadingGroups(true);
-            try {
-                const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }),
-                });
-                const data = await response.json();
-                if (data.success && Array.isArray(data.groups)) {
-                    setGroupCount(data.groups.length);
-                } else {
-                    setGroupCount(0);
-                }
-            } catch (error) {
-                console.error("Lỗi get-groups:", error);
-                setGroupCount(0);
-            } finally {
                 setIsLoadingGroups(false);
-            }
+            });
         };
-        fetchGroupCount();
+
+        fetchDashboardZaloData();
     }, [selectedAccount]);
 
     // --- Effect 4: Gọi API lấy thống kê tiến trình từ BE PHP (MỚI THÊM) ---
