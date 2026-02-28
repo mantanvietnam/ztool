@@ -13,6 +13,7 @@ import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 
@@ -141,10 +142,14 @@ const AddMemberModal = ({
     }, [selectedAccount]);
 
     const filteredFriends = useMemo(() => {
+        if (!search) return friends.filter(f => !existingMemberIds.includes(f.userId));
+        
+        const normalizedSearch = removeVietnameseTones(search.toLowerCase());
+        
         return friends.filter(f => 
             !existingMemberIds.includes(f.userId) &&
             (
-                f.displayName.toLowerCase().includes(search.toLowerCase()) || 
+                removeVietnameseTones(f.displayName.toLowerCase()).includes(normalizedSearch) || 
                 (f.phoneNumber && f.phoneNumber.includes(search)) ||
                 (f.userId && f.userId.includes(search))
             )
@@ -226,7 +231,14 @@ const BulkSendMessageTagModal = ({ members, onClose, onSubmit, pointCost, curren
 
     // Lọc danh sách hiển thị theo từ khóa tìm kiếm
     const filteredList = useMemo(() => {
-        return members.filter((m: any) => m.zalo_name_friend.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (!searchTerm) return members;
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return members.filter((m: any) => {
+            const normalizedName = removeVietnameseTones((m.zalo_name_friend || '').toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm);
+        });
     }, [members, searchTerm]);
 
     const calculatedCost = selectedIds.size * pointCost;
@@ -310,8 +322,19 @@ const BulkSendMessageTagModal = ({ members, onClose, onSubmit, pointCost, curren
                                         className="form-checkbox text-blue-500 rounded bg-gray-900 border-gray-600 h-4 w-4"
                                     />
                                     <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center shrink-0">
-                                            <FiUser size={14} className="text-gray-300"/>
+                                        <div className="flex-shrink-0">
+                                            {member.zalo_avatar_friend ? (
+                                                <img 
+                                                    src={member.zalo_avatar_friend} 
+                                                    alt="Avatar" 
+                                                    className="w-8 h-8 rounded-full object-cover border border-gray-600" 
+                                                    onError={(e) => e.currentTarget.src='/avatar-default.png'} 
+                                                />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-300 shrink-0">
+                                                    <FiUser size={14} />
+                                                </div>
+                                            )}
                                         </div>
                                         <span className="text-white text-sm truncate group-hover:text-blue-300 transition-colors">
                                             {member.zalo_name_friend}
@@ -531,10 +554,15 @@ export default function TagDetailPage() {
     };
 
     const filteredMembers = useMemo(() => {
-        return members.filter(member => 
-            (member.zalo_name_friend && member.zalo_name_friend.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (member.zalo_uid_friend && member.zalo_uid_friend.includes(searchTerm))
-        );
+        if (!searchTerm) return members;
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return members.filter(member => {
+            const normalizedName = member.zalo_name_friend ? removeVietnameseTones(member.zalo_name_friend.toLowerCase()) : '';
+            return normalizedName.includes(normalizedSearchTerm) ||
+                   (member.zalo_uid_friend && member.zalo_uid_friend.includes(searchTerm));
+        });
     }, [members, searchTerm]);
 
     const toggleMenu = (recordId: number) => {

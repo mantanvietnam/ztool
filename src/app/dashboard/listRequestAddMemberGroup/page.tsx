@@ -10,6 +10,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FiUsers, FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiSearch, FiCreditCard } from 'react-icons/fi';
 import axios from 'axios';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- TYPE DEFINITIONS ---
 
@@ -125,7 +126,14 @@ const AddMemberToGroupModal = ({ onClose, onSubmit, pointCost, currentUserPoints
 
 
     const filteredGroups = useMemo(() => {
-        return groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (!searchTerm) return groups;
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return groups.filter(group => {
+            const normalizedName = removeVietnameseTones((group.name || '').toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm);
+        });
     }, [groups, searchTerm]);
 
     const handleSubmit = async () => {

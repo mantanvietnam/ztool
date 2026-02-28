@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import Image from 'next/image';
 import { FiSend, FiLoader, FiAlertTriangle, FiSearch, FiUserX, FiX, FiCheckCircle } from 'react-icons/fi';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- TYPE DEFINITIONS ---
 interface SentRequest {
@@ -32,9 +33,13 @@ const CancelMultipleModal = ({ requests, onClose, onConfirm }: { requests: SentR
 
     const filteredRequestsInModal = useMemo(() => {
         if (!searchTerm) return requests;
-        return requests.filter(req =>
-            req.displayName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return requests.filter(req => {
+            const normalizedName = removeVietnameseTones(req.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm);
+        });
     }, [requests, searchTerm]);
 
     const handleToggle = (userId: string) => {
@@ -165,7 +170,14 @@ export default function ListWaitingFriendApprovalPage() {
     }, [selectedAccount, fetchRequests]);
 
     const filteredRequests = useMemo(() => {
-        return requests.filter(req => req.displayName.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (!searchTerm) return requests;
+
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+
+        return requests.filter(req => {
+            const normalizedName = removeVietnameseTones(req.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm);
+        });
     }, [requests, searchTerm]);
 
     // ✅ HÀM ĐÃ ĐƯỢỢC CẬP NHẬT LẦN CUỐI

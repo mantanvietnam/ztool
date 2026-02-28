@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 const MAP_SOURCE = process.env.NEXT_PUBLIC_MAP_SOURCE || 'osm';
@@ -197,9 +198,12 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
         setIsSubmitting(false);
     };
 
-    const filteredGroups = groups.filter(group => 
-        group.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredGroups = groups.filter(group => {
+        if (!searchTerm) return true;
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        const normalizedName = removeVietnameseTones(group.name.toLowerCase());
+        return normalizedName.includes(normalizedSearchTerm);
+    });
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>

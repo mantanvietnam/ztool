@@ -11,6 +11,7 @@ import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiSliders, FiShield, FiX,
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 
@@ -104,7 +105,11 @@ const BulkSendMessageModal = ({ allGroups, selectedAccount, onSubmit, onClose, p
     const [sendTime, setSendTime] = useState(getCurrentDateTimeLocal());
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredList = allGroups.filter((g: any) => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+    const filteredList = allGroups.filter((g: any) => {
+        const normalizedName = removeVietnameseTones((g.name || '').toLowerCase());
+        return normalizedName.includes(normalizedSearchTerm);
+    });
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
@@ -354,7 +359,38 @@ export default function ListGroupZaloPage() {
     }, [selectedAccount, removeAccount, isClient]);
 
     const groupStats = useMemo(() => { if (!isClient || !selectedAccount) return { total: 0, admin: 0, member: 0 }; const adminCount = groups.filter(g => Array.isArray(g.admins) && g.admins.includes(selectedAccount.profile.userId)).length; return { total: groups.length, admin: adminCount, member: groups.length - adminCount }; }, [groups, selectedAccount, isClient]);
-    const filteredGroups = useMemo(() => { if (!isClient || !selectedAccount) return []; return groups.filter(group => { if (searchTerm && group.name && !group.name.toLowerCase().includes(searchTerm.toLowerCase())) return false; const min = parseInt(minMembers, 10); const max = parseInt(maxMembers, 10); if (!isNaN(min) && group.totalMembers < min) return false; if (!isNaN(max) && group.totalMembers > max) return false; const isAdmin = Array.isArray(group.admins) && group.admins.includes(selectedAccount.profile.userId); if (roleFilter === 'admin' && !isAdmin) return false; if (roleFilter === 'member' && isAdmin) return false; if (typeFilter === 'community' && !group.isCommunity) return false; if (typeFilter === 'normal' && group.isCommunity) return false; return true; }).sort((a, b) => (a.name || '').localeCompare(b.name || '')); }, [groups, searchTerm, minMembers, maxMembers, roleFilter, typeFilter, selectedAccount, isClient]);
+    
+    const filteredGroups = useMemo(() => { 
+        if (!isClient || !selectedAccount) return []; 
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+
+        return groups.filter(group => { 
+            // 1. Lọc theo tên nhóm (hỗ trợ tiếng Việt có/không dấu)
+            if (searchTerm && group.name) {
+                const normalizedName = removeVietnameseTones(group.name.toLowerCase());
+                if (!normalizedName.includes(normalizedSearchTerm)) return false;
+            }
+            
+            // 2. Lọc theo số lượng thành viên
+            const min = parseInt(minMembers, 10); 
+            const max = parseInt(maxMembers, 10); 
+            if (!isNaN(min) && group.totalMembers < min) return false; 
+            if (!isNaN(max) && group.totalMembers > max) return false; 
+            
+            // 3. Lọc theo vai trò (Admin/Thành viên)
+            const isAdmin = Array.isArray(group.admins) && group.admins.includes(selectedAccount.profile.userId); 
+            if (roleFilter === 'admin' && !isAdmin) return false; 
+            if (roleFilter === 'member' && isAdmin) return false; 
+            
+            // 4. Lọc theo loại nhóm (Cộng đồng/Thường)
+            if (typeFilter === 'community' && !group.isCommunity) return false; 
+            if (typeFilter === 'normal' && group.isCommunity) return false; 
+            
+            return true; 
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')); 
+    }, [groups, searchTerm, minMembers, maxMembers, roleFilter, typeFilter, selectedAccount, isClient]);
+    
     const handleNavigateToGroupDetails = (identifier: string) => { const encodedIdentifier = encodeURIComponent(identifier); router.push(`/dashboard/group-details/${encodedIdentifier}`); };
 
     // ✨ CẬP NHẬT: Hàm submit xử lý FormData để gửi file VÀ timeSend

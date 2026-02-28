@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertTriangle, FiUserPlus, FiCheckCircle, FiPhone, FiHelpCircle, FiChevronDown, FiX, FiSend, FiEye, FiPaperclip, FiTrash2, FiShare, FiClock, FiTag, FiPlus, FiEdit2 } from 'react-icons/fi';
 import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- HELPER FUNCTIONS (MỚI - GIỐNG TRANG GỬI NGƯỜI LẠ) ---
 
@@ -79,10 +80,14 @@ const BulkSendMessageModal = ({ allMembers, onSubmit, onClose, pointCost, curren
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
     
     const filteredList = useMemo(() => {
-        return allMembers.filter(member => 
-            member.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            (member.phoneNumber && member.phoneNumber.includes(searchTerm))
-        );
+        if (!searchTerm) return allMembers;
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return allMembers.filter(member => {
+            const normalizedName = removeVietnameseTones(member.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm) || 
+                   (member.phoneNumber && member.phoneNumber.includes(searchTerm));
+        });
     }, [allMembers, searchTerm]);
 
     const handleToggleSelect = (id: string) => {
@@ -163,10 +168,14 @@ const BulkAddFriendModal = ({ allMembers, onSubmit, onClose, pointCost, currentU
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
     
     const filteredList = useMemo(() => {
+        if (!searchTerm) return nonFriendMembers;
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
         return nonFriendMembers.filter(member => {
-            const nameMatch = member.displayName.toLowerCase().includes(searchTerm.toLowerCase());
+            const normalizedName = removeVietnameseTones(member.displayName.toLowerCase());
+            const nameMatch = normalizedName.includes(normalizedSearchTerm);
             const phoneMatch = member.phoneNumber && member.phoneNumber.includes(searchTerm);
-            return !searchTerm || nameMatch || phoneMatch;
+            return nameMatch || phoneMatch;
         });
     }, [nonFriendMembers, searchTerm]);
     
@@ -372,8 +381,17 @@ const AddMembersToTagModal = ({
         }
     };
 
-    const filteredTags = tags.filter(t => t.name.toLowerCase().includes(searchTag.toLowerCase()));
-    const filteredMembers = members.filter(m => m.displayName.toLowerCase().includes(searchMember.toLowerCase()) || (m.userId && m.userId.includes(searchMember)));
+    const normalizedSearchTag = removeVietnameseTones(searchTag.toLowerCase());
+    const filteredTags = tags.filter(t => 
+        removeVietnameseTones(t.name.toLowerCase()).includes(normalizedSearchTag)
+    );
+
+    const normalizedSearchMember = removeVietnameseTones(searchMember.toLowerCase());
+    const filteredMembers = members.filter(m => {
+        const normalizedName = removeVietnameseTones(m.displayName.toLowerCase());
+        return normalizedName.includes(normalizedSearchMember) || 
+               (m.userId && m.userId.includes(searchMember));
+    });
 
     const toggleMember = (id: string) => {
         const newSet = new Set(selectedMemberIds);
@@ -526,11 +544,23 @@ const InviteToGroupModal = ({ currentGroupId, allMembers, selectedAccount, onSub
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
-    // Filter thành viên (Cột trái)
-    const filteredList = useMemo(() => allMembers.filter(m => !searchTerm || m.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || m.phoneNumber?.includes(searchTerm)), [allMembers, searchTerm]);
+    const filteredList = useMemo(() => {
+        if (!searchTerm) return allMembers;
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        return allMembers.filter(m => {
+            const normalizedName = removeVietnameseTones(m.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm) || m.phoneNumber?.includes(searchTerm);
+        });
+    }, [allMembers, searchTerm]);
     
-    // ✨ MỚI: Filter nhóm (Cột phải)
-    const filteredGroups = useMemo(() => availableGroups.filter(g => !groupSearchTerm || g.name.toLowerCase().includes(groupSearchTerm.toLowerCase())), [availableGroups, groupSearchTerm]);
+    const filteredGroups = useMemo(() => {
+        if (!groupSearchTerm) return availableGroups;
+        const normalizedGroupSearch = removeVietnameseTones(groupSearchTerm.toLowerCase());
+        return availableGroups.filter(g => {
+            const normalizedName = removeVietnameseTones(g.name.toLowerCase());
+            return normalizedName.includes(normalizedGroupSearch);
+        });
+    }, [availableGroups, groupSearchTerm]);
 
     const handleToggleSelect = (id: string) => { const newSet = new Set(selectedIds); newSet.has(id) ? newSet.delete(id) : newSet.add(id); setSelectedIds(newSet); };
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(m => m.userId)));
@@ -664,6 +694,17 @@ export default function GroupDetailsPage() {
         fetchDetails();
     }, [groupId, selectedAccount]);
 
+    const filteredMembers = useMemo(() => {
+        if (!details) return [];
+        if (!searchTerm) return details.members;
+        
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        return details.members.filter(m => {
+            const normalizedName = removeVietnameseTones(m.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm) || m.phoneNumber?.includes(searchTerm);
+        });
+    }, [details, searchTerm]);
+
     // 1. GỬI TIN NHẮN (API) - ✨ CẬP NHẬT: THÊM THAM SỐ timeSend
     const handleBulkSendSubmit = async (message: string, memberIds: string[], files: File[], timeSend: string) => {
         if (!selectedAccount || !user || !pointCosts) return;
@@ -789,7 +830,7 @@ export default function GroupDetailsPage() {
 
             {/* Grid Members */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {details.members.filter(m => !searchTerm || m.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || m.phoneNumber?.includes(searchTerm)).map(m => (
+                {filteredMembers.map(m => (
                     <div key={m.userId} className="bg-gray-800 p-4 rounded-lg flex flex-col items-center text-center border border-gray-700 hover:border-blue-500 transition">
                         <Image src={m.avatar || '/avatar-default-crm.png'} alt="" width={80} height={80} className="rounded-full mb-3" onError={(e) => { (e.target as HTMLImageElement).src = '/avatar-default-crm.png'; }}/>
                         <p className="font-semibold text-white truncate w-full">{m.displayName}</p>

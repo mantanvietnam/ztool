@@ -223,6 +223,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                                 { label: "API kết bạn", href: "/dashboard/api/add-friend" },
                                 { label: "API gửi tin nhắn", href: "/dashboard/api/send-message" },
                                 { label: "API thêm vào nhóm", href: "/dashboard/api/add-group" },
+                                { label: "API gán thẻ phân loại", href: "/dashboard/api/add-tag" },
                             ]}
                         />
                     </div>

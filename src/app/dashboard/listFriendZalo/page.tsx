@@ -11,6 +11,7 @@ import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MessageComposer from '@/components/MessageComposer';
+import { removeVietnameseTones } from '@/utils/stringUtils';
 
 // --- HELPER FUNCTIONS (MỚI) ---
 
@@ -64,7 +65,24 @@ const BulkUnfriendModal = ({ allFriends, onSubmit, onClose, pointCost, currentUs
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
-    const filteredList = useMemo(() => { return allFriends.filter(friend => { const nameMatch = friend.displayName.toLowerCase().includes(searchTerm.toLowerCase()); const phoneMatch = friend.phoneNumber && friend.phoneNumber.includes(searchTerm); if (searchTerm && !nameMatch && !phoneMatch) return false; if (showAdvanced) { if (genderFilter === 'male' && friend.gender !== 0) return false; if (genderFilter === 'female' && friend.gender !== 1) return false; if (letterFilter !== 'all' && !friend.displayName.toLowerCase().startsWith(letterFilter.toLowerCase())) return false; } return true; }); }, [allFriends, searchTerm, genderFilter, letterFilter, showAdvanced]);
+    const filteredList = useMemo(() => { 
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return allFriends.filter(friend => { 
+            const normalizedName = removeVietnameseTones(friend.displayName.toLowerCase());
+            const nameMatch = normalizedName.includes(normalizedSearchTerm); 
+            const phoneMatch = friend.phoneNumber && friend.phoneNumber.includes(searchTerm); 
+            
+            if (searchTerm && !nameMatch && !phoneMatch) return false; 
+            if (showAdvanced) { 
+                if (genderFilter === 'male' && friend.gender !== 0) return false; 
+                if (genderFilter === 'female' && friend.gender !== 1) return false; 
+                if (letterFilter !== 'all' && !removeVietnameseTones(friend.displayName.toLowerCase()).startsWith(letterFilter.toLowerCase())) return false; 
+            } 
+            return true; 
+        }); 
+    }, [allFriends, searchTerm, genderFilter, letterFilter, showAdvanced]);
+
     const handleToggleSelect = (friendId: string) => { const newSelectedIds = new Set(selectedIds); newSelectedIds.has(friendId) ? newSelectedIds.delete(friendId) : newSelectedIds.add(friendId); setSelectedIds(newSelectedIds); };
     const handleSelectAll = () => setSelectedIds(new Set(filteredList.map(f => f.userId)));
     const handleDeselectAll = () => setSelectedIds(new Set());
@@ -103,9 +121,11 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
     const [searchTerm, setSearchTerm] = useState('');
 
     // Lọc danh sách bạn bè để chọn
-    const filteredList = allFriends.filter((f: any) => 
-        f.displayName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+    const filteredList = allFriends.filter((f: any) => {
+        const normalizedName = removeVietnameseTones(f.displayName.toLowerCase());
+        return normalizedName.includes(normalizedSearchTerm);
+    });
 
     const calculatedCost = selectedIds.size * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
@@ -336,7 +356,16 @@ export default function ListFriendZaloPage() {
     }, [selectedAccount, isClient, removeAccount]);
     
     const friendStats = useMemo(() => { if (!isClient) return { total: 0, male: 0, female: 0 }; const maleCount = friends.filter(f => f.gender === 0).length; const femaleCount = friends.filter(f => f.gender === 1).length; return { total: friends.length, male: maleCount, female: femaleCount, }; }, [friends, isClient]);
-    const filteredAndSortedFriends = useMemo(() => { return friends .filter(friend => friend.displayName.toLowerCase().includes(searchTerm.toLowerCase()) || (friend.phoneNumber && friend.phoneNumber.includes(searchTerm))) .sort((a, b) => a.displayName.localeCompare(b.displayName)); }, [friends, searchTerm]);
+    
+    const filteredAndSortedFriends = useMemo(() => { 
+        const normalizedSearchTerm = removeVietnameseTones(searchTerm.toLowerCase());
+        
+        return friends.filter(friend => {
+            const normalizedName = removeVietnameseTones(friend.displayName.toLowerCase());
+            return normalizedName.includes(normalizedSearchTerm) || (friend.phoneNumber && friend.phoneNumber.includes(searchTerm));
+        }).sort((a, b) => a.displayName.localeCompare(b.displayName)); 
+    }, [friends, searchTerm]);
+    
     const toggleMenu = (userId: string) => { setActiveMenu(prev => (prev === userId ? null : userId)); };
 
     // Xử lý gửi tin nhắn đơn lẻ (Có file & Time)
