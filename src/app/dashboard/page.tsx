@@ -94,11 +94,13 @@ export default function DashboardHomePage() {
     const savedProxyStr = localStorage.getItem('userProxy');
     const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
 
-    // --- GỘP EFFECT 1, 2, 3: ĐỌC CACHE & GỌI API NGẦM (SMART CACHE) ---
+    // --- GỘP EFFECT 1, 2, 3: ĐỌC CACHE & GỌI API NGẦM (SMART CACHE & SAFE LIMIT) ---
     useEffect(() => {
+        let isActive = true; // ✨ CỜ ĐIỀU KHIỂN CHỐNG MEMORY LEAK
+
         const fetchDashboardZaloData = async () => {
             if (!selectedAccount) { 
-                setFriendCount(0); setWaitingCount(0); setGroupCount(0); 
+                if (isActive) { setFriendCount(0); setWaitingCount(0); setGroupCount(0); }
                 return; 
             }
 
@@ -107,48 +109,64 @@ export default function DashboardHomePage() {
             const payload = { cookie, imei, userAgent, proxy: savedProxy };
 
             // 1. ĐỌC CACHE VÀ HIỂN THỊ GIAO DIỆN NGAY LẬP TỨC
-            let hasFriendsCache = false;
-            let hasGroupsCache = false;
+            let cachedFriendsCount = 0;
+            let cachedGroupsCount = 0;
 
             // Đọc Cache Bạn bè
             const cachedFriendsStr = localStorage.getItem(`ztool_friends_${myId}`);
             if (cachedFriendsStr) {
                 const cachedFriends = JSON.parse(cachedFriendsStr);
-                setFriendCount(cachedFriends.length);
-                hasFriendsCache = true;
+                cachedFriendsCount = cachedFriends.length;
+                if (isActive) {
+                    setFriendCount(cachedFriendsCount);
+                    setIsLoadingFriends(false); // Có cache thì tắt loading luôn
+                }
+            } else {
+                if (isActive) setIsLoadingFriends(true);
             }
+
+            if (isActive) setIsLoadingWaiting(true); // Chờ đồng ý chưa làm cache
 
             // Đọc Cache Nhóm
             const cachedGroupsStr = localStorage.getItem(`ztool_groups_${myId}`);
             if (cachedGroupsStr) {
                 const cachedGroups = JSON.parse(cachedGroupsStr);
-                setGroupCount(cachedGroups.length);
-                hasGroupsCache = true;
+                cachedGroupsCount = cachedGroups.length;
+                if (isActive) {
+                    setGroupCount(cachedGroupsCount);
+                    setIsLoadingGroups(false); // Có cache thì tắt loading luôn
+                }
+            } else {
+                if (isActive) setIsLoadingGroups(true);
             }
 
-            // Bật loading nếu CHƯA CÓ CACHE (Nếu có rồi thì bỏ qua loading, hiện số luôn)
-            if (!hasFriendsCache) setIsLoadingFriends(true);
-            setIsLoadingWaiting(true); // Chờ đồng ý chưa làm cache nên vẫn bật loading
-            if (!hasGroupsCache) setIsLoadingGroups(true);
-
             // 2. GỌI API NGẦM ĐỂ CẬP NHẬT SỐ LIỆU MỚI NHẤT
-            Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                }).then(res => res.json()).catch(() => ({ success: false })),
-                
-                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                }).then(res => res.json()).catch(() => ({ success: false })),
-                
-                fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                }).then(res => res.json()).catch(() => ({ success: false }))
-            ]).then(([friendsData, requestsData, groupsData]) => {
-                // Xử lý Bạn bè
+            try {
+                const [friendsData, requestsData, groupsData] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    }).then(res => res.json()).catch(() => ({ success: false })),
+                    
+                    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    }).then(res => res.json()).catch(() => ({ success: false })),
+                    
+                    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    }).then(res => res.json()).catch(() => ({ success: false }))
+                ]);
+
+                if (!isActive) return; // Thoát nếu người dùng đã chuyển trang
+
+                // Xử lý Bạn bè + 🛡️ KHIÊN BẢO VỆ SILENT LIMIT
                 if (friendsData.success && Array.isArray(friendsData.friends)) {
-                    setFriendCount(friendsData.friends.length);
-                    localStorage.setItem(`ztool_friends_${myId}`, JSON.stringify(friendsData.friends));
+                    const newFriendsCount = friendsData.friends.length;
+                    if (newFriendsCount === 0 && cachedFriendsCount > 10) {
+                        console.warn("🛡️ Dashboard: Zalo trả về 0 bạn bè. Giữ nguyên cache.");
+                    } else {
+                        setFriendCount(newFriendsCount);
+                        localStorage.setItem(`ztool_friends_${myId}`, JSON.stringify(friendsData.friends));
+                    }
                 }
                 
                 // Xử lý Chờ đồng ý
@@ -156,30 +174,42 @@ export default function DashboardHomePage() {
                     setWaitingCount(Object.keys(requestsData.requests).length);
                 }
                 
-                // Xử lý Nhóm (Chỉ cập nhật số, vì chi tiết nhóm có API riêng dạng batch bên trang nhóm)
+                // Xử lý Nhóm + 🛡️ KHIÊN BẢO VỆ SILENT LIMIT
                 if (groupsData.success && Array.isArray(groupsData.groups)) {
-                    setGroupCount(groupsData.groups.length);
+                    const newGroupsCount = groupsData.groups.length;
+                    if (newGroupsCount === 0 && cachedGroupsCount > 5) {
+                        console.warn("🛡️ Dashboard: Zalo trả về 0 nhóm. Hiển thị số lượng từ cache.");
+                    } else {
+                        setGroupCount(newGroupsCount);
+                    }
                 }
-            }).finally(() => {
-                setIsLoadingFriends(false);
-                setIsLoadingWaiting(false);
-                setIsLoadingGroups(false);
-            });
+            } catch (error) {
+                console.error("Lỗi khi tải dữ liệu Dashboard:", error);
+            } finally {
+                if (isActive) {
+                    setIsLoadingFriends(false);
+                    setIsLoadingWaiting(false);
+                    setIsLoadingGroups(false);
+                }
+            }
         };
 
         fetchDashboardZaloData();
+
+        return () => { isActive = false; };
     }, [selectedAccount]);
 
-    // --- Effect 4: Gọi API lấy thống kê tiến trình từ BE PHP (MỚI THÊM) ---
+    // --- Effect 4: Gọi API lấy thống kê tiến trình từ BE PHP ---
     useEffect(() => {
+        let isActive = true; // ✨ CỜ ĐIỀU KHIỂN CHỐNG MEMORY LEAK
+
         const fetchProcessStats = async () => {
             if (!selectedAccount) {
-                setProcessStats({ addFriend: { done: 0, total: 0 }, sendMessage: { done: 0, total: 0 } });
+                if (isActive) setProcessStats({ addFriend: { done: 0, total: 0 }, sendMessage: { done: 0, total: 0 } });
                 return;
             }
-            setIsLoadingProcess(true);
+            if (isActive) setIsLoadingProcess(true);
             try {
-                // Chuẩn bị FormData theo chuẩn PHP Backend
                 const formData = new FormData();
                 formData.append('userId', selectedAccount.profile.userId);
                 const token = localStorage.getItem('authToken');
@@ -187,16 +217,15 @@ export default function DashboardHomePage() {
 
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/staticDashboardAPI`, {
                     method: 'POST',
-                    body: formData, // BE PHP thường nhận FormData
+                    body: formData,
                 });
 
                 const data = await response.json();
 
-                if (data.code === 0) {
+                if (data.code === 0 && isActive) {
                     setProcessStats({
                         addFriend: { 
                             done: data.requestAddFriendDone || 0, 
-                            // Giả định key là requestAddFriendTotal, nếu API trả key khác (ví dụ requestAddFriendAll) bạn hãy sửa ở đây
                             total: data.requestAddFriendTotal || 0 
                         },
                         sendMessage: { 
@@ -208,11 +237,13 @@ export default function DashboardHomePage() {
             } catch (error) {
                 console.error("Lỗi staticDashboardAPI:", error);
             } finally {
-                setIsLoadingProcess(false);
+                if (isActive) setIsLoadingProcess(false);
             }
         };
 
         fetchProcessStats();
+
+        return () => { isActive = false; };
     }, [selectedAccount]);
 
     return (

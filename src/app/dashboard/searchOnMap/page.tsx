@@ -177,18 +177,113 @@ const AddToGroupModal = ({ count, onClose, onSubmit, pointCost, currentUserPoint
     const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
 
     useEffect(() => {
+        // Cờ điều khiển để dừng fetch ngầm nếu người dùng tắt popup Modal
+        let isActive = true;
+        if (!selectedAccount) return;
+
         const fetchGroups = async () => {
-            if (!selectedAccount) return;
             setIsLoading(true);
+            const myId = selectedAccount.profile.userId;
+            // Dùng chung key cache với toàn bộ các trang khác
+            const cacheKey = `ztool_groups_${myId}`;
+            let cachedGroups: any[] = [];
+
             try {
+                // 1. ĐỌC CACHE TỪ LOCALSTORAGE LÊN TRƯỚC
+                const cachedData = localStorage.getItem(cacheKey);
+                if (cachedData) {
+                    cachedGroups = JSON.parse(cachedData);
+                    if (isActive) {
+                        setGroups(cachedGroups);
+                        setIsLoading(false); // Tắt loading ngay lập tức vì đã có cache hiển thị
+                    }
+                }
+
                 const { cookie, imei, userAgent } = selectedAccount;
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups-with-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cookie, imei, userAgent, proxy: savedProxy  }), });
-                const data = await response.json();
-                if (data.success) setGroups(data.groups || []);
-            } catch (error) { console.error("Lỗi khi tải danh sách nhóm:", error); } 
-            finally { setIsLoading(false); }
+                const payload = { cookie, imei, userAgent, proxy: savedProxy };
+
+                // 2. LẤY MẢNG ID TỪ SERVER ĐỂ KIỂM TRA ĐỒNG BỘ
+                const resIds = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, payload);
+                const dataIds = resIds.data;
+
+                if (dataIds.success) {
+                    const fetchedGroupIds = dataIds.groups || [];
+
+                    // Bảo vệ Silent Limit (Zalo trả về 0 nhóm bất thường)
+                    if (fetchedGroupIds.length === 0 && cachedGroups.length > 5) {
+                        console.warn("🛡️ Popup Thêm Nhóm (Map): Zalo trả về 0 nhóm, giữ nguyên cache.");
+                        if (isActive) setIsLoading(false);
+                        return;
+                    }
+
+                    if (!isActive) return; // Thoát nếu người dùng đã đóng modal
+
+                    // 3. SMART DIFFING & LỌC NHÓM
+                    const cachedIds = cachedGroups.map(g => g.id);
+                    
+                    // Nhóm mới tinh
+                    const newIds = fetchedGroupIds.filter((id: string) => !cachedIds.includes(id));
+                    // Nhóm cũ cần update
+                    const existingIdsToUpdate = fetchedGroupIds.filter((id: string) => cachedIds.includes(id));
+                    // Xóa các nhóm người dùng đã out
+                    let accumulatedGroups = cachedGroups.filter(g => fetchedGroupIds.includes(g.id));
+
+                    if (isActive) {
+                        setGroups([...accumulatedGroups]); // Cập nhật lại UI những nhóm còn tồn tại
+                        localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
+                        setIsLoading(false);
+                    }
+
+                    // Ghép mảng ưu tiên tải (Nhóm mới lên trước)
+                    const prioritizedIds = [...newIds, ...existingIdsToUpdate];
+                    if (prioritizedIds.length === 0) return;
+
+                    // 4. VÒNG LẶP TẢI CHI TIẾT NGẦM TRONG POPUP THEO BATCH
+                    const BATCH_SIZE = 5;
+                    for (let i = 0; i < prioritizedIds.length; i += BATCH_SIZE) {
+                        if (!isActive) break; // Dừng ngay nếu Modal bị đóng
+
+                        const batchIds = prioritizedIds.slice(i, i + BATCH_SIZE);
+                        try {
+                            const batchRes = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sync-groups-batch`, {
+                                ...payload, batchIds
+                            });
+
+                            if (batchRes.data.success && isActive) {
+                                const newFetchedGroups = batchRes.data.groups;
+                                // Upsert đè dữ liệu mới tải về lên mảng hiển thị
+                                newFetchedGroups.forEach((newG: any) => {
+                                    const idx = accumulatedGroups.findIndex(g => g.id === newG.id);
+                                    if (idx >= 0) accumulatedGroups[idx] = newG;
+                                    else accumulatedGroups.push(newG);
+                                });
+
+                                setGroups([...accumulatedGroups]);
+                                localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
+                            }
+                        } catch (err) { 
+                            console.error("Batch Error in AddToGroup Modal:", err); 
+                        }
+
+                        // Nghỉ ngơi giữa các batch để tránh Spam
+                        if (i + BATCH_SIZE < prioritizedIds.length && isActive) {
+                            await new Promise(r => setTimeout(r, 1500));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Lỗi khi tải danh sách nhóm:", err);
+            } finally {
+                if (isActive) setIsLoading(false);
+            }
         };
+
         fetchGroups();
+
+        // Cleanup: Dọn dẹp khi đóng Modal
+        return () => {
+            isActive = false;
+        };
     }, [selectedAccount]);
 
     const handleSubmit = async () => {

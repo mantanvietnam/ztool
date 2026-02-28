@@ -247,6 +247,9 @@ export default function ListGroupZaloPage() {
     useEffect(() => { setIsClient(true); }, []);
     
     useEffect(() => { 
+        // ✨ CỜ ĐIỀU KHIỂN: Đánh dấu component đang hoạt động
+        let isActive = true;
+
         if (!isClient || !selectedAccount) { 
             if (isClient && !selectedAccount) { setGroups([]); setLoading(false); } 
             return; 
@@ -267,7 +270,7 @@ export default function ListGroupZaloPage() {
                     if (cachedData) {
                         cachedGroups = JSON.parse(cachedData);
                         setGroups(cachedGroups);
-                        setLoading(false); // Có cache thì nhả UI ra ngay
+                        if(isActive) setLoading(false); // Có cache thì nhả UI ra ngay
                     }
                 }
 
@@ -284,78 +287,109 @@ export default function ListGroupZaloPage() {
                 } 
                 
                 if (dataIds.success) { 
-                    const groupIds = dataIds.groups || [];
+                    const fetchedGroupIds = dataIds.groups || [];
 
-                    // --- 3. SMART CACHE DIFFING & BẢO VỆ SILENT LIMIT ---
-                    if (groupIds.length === 0 && cachedGroups.length > 5 && !forceRefresh) {
+                    // --- 3. BẢO VỆ SILENT LIMIT (Zalo chặn trả về 0) ---
+                    // Nếu trả về 0 nhóm nhưng cache đang có nhiều hơn 5 nhóm, khả năng cao là bị limit ảo
+                    if (fetchedGroupIds.length === 0 && cachedGroups.length > 5 && !forceRefresh) {
                         console.warn("🛡️ Phát hiện API Zalo trả về 0 nhóm bất thường. Đã chặn lệnh xóa Cache!");
-                        setLoading(false);
+                        if (isActive) {
+                            setLoading(false);
+                            setSyncProgress({ current: 0, total: 0, isSyncing: false });
+                        }
                         return;
                     }
 
-                    setSyncProgress({ current: 0, total: groupIds.length, isSyncing: true });
+                    if (!isActive) return; // Dừng nếu đã chuyển trang
 
-                    let accumulatedGroups = [...cachedGroups];
+                    // --- 4. SMART DIFFING & ƯU TIÊN LOAD ---
+                    const cachedIds = cachedGroups.map(g => g.id);
+                    
+                    // a. Tìm nhóm mới tinh (Có trong fetch, không có trong cache)
+                    const newIds = fetchedGroupIds.filter((id: string) => !cachedIds.includes(id));
+                    
+                    // b. Tìm nhóm cũ cần update (Có trong fetch, có trong cache)
+                    const existingIdsToUpdate = fetchedGroupIds.filter((id: string) => cachedIds.includes(id));
 
-                    if (groupIds.length > 0 && cachedGroups.length > 0) {
-                        // Lọc bỏ nhóm đã thoát
-                        accumulatedGroups = cachedGroups.filter(g => groupIds.includes(g.id));
-                        setGroups(accumulatedGroups);
+                    // c. Xóa nhóm đã rời (Có trong cache, không có trong fetch)
+                    let accumulatedGroups = cachedGroups.filter(g => fetchedGroupIds.includes(g.id));
+                    
+                    if (isActive) {
+                        setGroups([...accumulatedGroups]); // Cập nhật UI ngay lập tức các nhóm còn tồn tại
                         localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
-                    } else if (forceRefresh || cachedGroups.length === 0) {
-                        accumulatedGroups = [];
-                        setGroups([]);
+                        setLoading(false);
                     }
 
-                    // ✨ [THÊM DÒNG NÀY]: Tắt vòng xoay loading khổng lồ ngay lập tức 
-                    // để nhường chỗ cho UI hiển thị dữ liệu được nạp vào dần dần
-                    setLoading(false);
+                    // Ghép mảng ưu tiên: Lấy thông tin nhóm mới trước, sau đó mới cào lại info nhóm cũ
+                    const prioritizedIds = [...newIds, ...existingIdsToUpdate];
 
-                    // --- 4. VÒNG LẶP TẢI CHI TIẾT NGẦM (BATCH ORCHESTRATION) ---
+                    if (prioritizedIds.length === 0) {
+                        if (isActive) setSyncProgress({ current: 0, total: 0, isSyncing: false });
+                        return;
+                    }
+
+                    if (isActive) {
+                        setSyncProgress({ current: 0, total: prioritizedIds.length, isSyncing: true });
+                    }
+
+                    // --- 5. VÒNG LẶP TẢI CHI TIẾT NGẦM CÓ KIỂM SOÁT ---
                     const BATCH_SIZE = 5;
-                    for (let i = 0; i < groupIds.length; i += BATCH_SIZE) {
-                        const batchIds = groupIds.slice(i, i + BATCH_SIZE);
+                    for (let i = 0; i < prioritizedIds.length; i += BATCH_SIZE) {
+                        // 🛑 KIỂM TRA CHUYỂN TRANG: Nếu người dùng đã rời đi, lập tức break vòng lặp
+                        if (!isActive) {
+                            console.log("Component unmounted, stopping background sync...");
+                            break;
+                        }
+
+                        const batchIds = prioritizedIds.slice(i, i + BATCH_SIZE);
                         try {
                             const batchRes = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sync-groups-batch`, {
                                 ...payload, batchIds
                             });
 
-                            if (batchRes.data.success) {
+                            if (batchRes.data.success && isActive) {
                                 const newFetchedGroups = batchRes.data.groups;
                                 // Upsert đè dữ liệu mới lên
                                 newFetchedGroups.forEach((newG: any) => {
                                     const idx = accumulatedGroups.findIndex(g => g.id === newG.id);
                                     if (idx >= 0) accumulatedGroups[idx] = newG;
-                                    else accumulatedGroups.push(newG);
+                                    else accumulatedGroups.push(newG); // Đây là nhóm mới (ưu tiên load xong rồi)
                                 });
 
                                 setGroups([...accumulatedGroups]); // Render mượt mà
-                                setSyncProgress(prev => ({ ...prev, current: Math.min(i + BATCH_SIZE, groupIds.length) }));
+                                setSyncProgress(prev => ({ ...prev, current: Math.min(i + BATCH_SIZE, prioritizedIds.length) }));
+                                // Cập nhật cache dần dần để tránh mất data nếu mạng rớt giữa chừng
+                                localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
                             }
                         } catch (err) { console.error("Batch Error:", err); }
 
-                        // Ngủ 1.5s giữa các request để tránh bão mạng
-                        if (i + BATCH_SIZE < groupIds.length) {
+                        // Ngủ 1.5s giữa các request, và vẫn phải check isActive sau khi ngủ dậy
+                        if (i + BATCH_SIZE < prioritizedIds.length && isActive) {
                             await new Promise(r => setTimeout(r, 1500));
                         }
                     }
 
-                    // 5. HOÀN TẤT ĐỒNG BỘ
-                    setSyncProgress(prev => ({ ...prev, isSyncing: false, current: prev.total }));
-                    localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
+                    // --- 6. HOÀN TẤT ĐỒNG BỘ ---
+                    if (isActive) {
+                        setSyncProgress(prev => ({ ...prev, isSyncing: false, current: prev.total })); // Ẩn thanh trạng thái
+                    }
 
                 } else { 
                     throw new Error(dataIds.message || 'Lấy danh sách nhóm thất bại.'); 
                 } 
             } catch (err: any) { 
-                setError(err.response?.data?.message || err.message); 
+                if (isActive) setError(err.response?.data?.message || err.message); 
             } finally { 
-                setLoading(false); 
+                if (isActive) setLoading(false); 
             } 
         }; 
         
-        // Gọi hàm fetch (Dùng cờ tĩnh để chống gọi 2 lần trong Strict Mode của React)
         fetchGroups(); 
+
+        // ✨ CLEANUP FUNCTION: Chạy khi Component Unmount (người dùng chuyển sang trang khác)
+        return () => {
+            isActive = false;
+        };
     }, [selectedAccount, removeAccount, isClient]);
 
     const groupStats = useMemo(() => { if (!isClient || !selectedAccount) return { total: 0, admin: 0, member: 0 }; const adminCount = groups.filter(g => Array.isArray(g.admins) && g.admins.includes(selectedAccount.profile.userId)).length; return { total: groups.length, admin: adminCount, member: groups.length - adminCount }; }, [groups, selectedAccount, isClient]);
@@ -390,7 +424,7 @@ export default function ListGroupZaloPage() {
             return true; 
         }).sort((a, b) => (a.name || '').localeCompare(b.name || '')); 
     }, [groups, searchTerm, minMembers, maxMembers, roleFilter, typeFilter, selectedAccount, isClient]);
-    
+
     const handleNavigateToGroupDetails = (identifier: string) => { const encodedIdentifier = encodeURIComponent(identifier); router.push(`/dashboard/group-details/${encodedIdentifier}`); };
 
     // ✨ CẬP NHẬT: Hàm submit xử lý FormData để gửi file VÀ timeSend
