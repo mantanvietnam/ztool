@@ -6,7 +6,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { FiMapPin, FiSearch, FiCrosshair, FiLoader, FiAlertTriangle, FiDownload, FiUserPlus, FiMessageSquare, FiUsers, FiX, FiCheckCircle, FiEye, FiPlus, FiCreditCard, FiHelpCircle, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Link from 'next/link';
 import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
@@ -546,17 +546,53 @@ export default function SearchOnMapPage() {
         } 
     };
 
-    const handleExport = () => {
+    // Chú ý: Thêm chữ 'async' vào trước ()
+    const handleExport = async () => {
         if (!pointCosts || !user) { alert("Chưa tải được cấu hình điểm."); return; }
         const cost = pointCosts.export_data_map || 0;
         if (user.point < cost) { alert(`Không đủ điểm để xuất dữ liệu. Cần ${cost}, bạn đang có ${user.point}.`); return; }
         const phoneNumbers = results.map(r => r.international_phone_number).filter(Boolean);
         if (phoneNumbers.length === 0) { alert("Không có số điện thoại nào trong danh sách để xuất."); return; }
-        const dataForExcel = results.map(place => ({ "Tên Địa Điểm": place.name, "Địa Chỉ": place.formatted_address, "Số Điện Thoại": place.international_phone_number, "Website": place.website, "Đánh Giá": place.rating, "Link Bản Đồ": place.url }));
-        const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Địa Điểm");
-        XLSX.writeFile(workbook, "Danh_Sach_Dia_Diem_VN.xlsx");
+        
+        const dataForExcel = results.map(place => ({ 
+            "Tên Địa Điểm": place.name || "", 
+            "Địa Chỉ": place.formatted_address || "", 
+            "Số Điện Thoại": place.international_phone_number || "", 
+            "Website": place.website || "", 
+            "Đánh Giá": place.rating || "", 
+            "Link Bản Đồ": place.url || "" 
+        }));
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Địa Điểm");
+
+        if (dataForExcel.length > 0) {
+            worksheet.addRow(Object.keys(dataForExcel[0])); // Thêm dòng tiêu đề
+            dataForExcel.forEach(row => {
+                worksheet.addRow(Object.values(row)); // Thêm từng dòng dữ liệu
+            });
+
+            // --- PHẦN MỚI THÊM: CHỈNH ĐỘ RỘNG CỘT (TÍNH THEO SỐ KÝ TỰ) ---
+            worksheet.getColumn(1).width = 35; // Tên Địa Điểm
+            worksheet.getColumn(2).width = 50; // Địa Chỉ (Cần rộng nhất)
+            worksheet.getColumn(3).width = 20; // Số Điện Thoại
+            worksheet.getColumn(4).width = 35; // Website
+            worksheet.getColumn(5).width = 15; // Đánh Giá
+            worksheet.getColumn(6).width = 45; // Link Bản Đồ
+
+            // Tiện tay in đậm dòng tiêu đề (dòng 1) cho đẹp mắt
+            worksheet.getRow(1).font = { bold: true };
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = "ZTOOL_Danh_Sach_Dia_Diem.xlsx";
+        anchor.click();
+        window.URL.revokeObjectURL(url);
+
         updateUserPoints(user.point - cost);
         alert(`Xuất file thành công! Đã trừ ${cost} điểm.`);
     };
