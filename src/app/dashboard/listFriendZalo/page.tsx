@@ -5,7 +5,6 @@ import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
-// ✨ THÊM MỚI: Import thêm FiClock
 import { FiUsers, FiLoader, FiAlertTriangle, FiSearch, FiMoreVertical, FiMessageSquare, FiInfo, FiUserX, FiX, FiSend, FiCheckCircle, FiHelpCircle, FiChevronDown, FiUserPlus as FiMale, FiUserMinus as FiFemale, FiEye, FiCreditCard, FiPaperclip, FiTrash2, FiClock } from 'react-icons/fi';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -216,6 +215,244 @@ const BulkSendMessageModal = ({ allFriends, onSubmit, onClose, pointCost, curren
     );
 };
 
+// ✨ THÊM MỚI COMPONENT: BulkInviteToGroupModal (Mời bạn bè vào nhóm có Cache-First)
+const BulkInviteToGroupModal = ({ allFriends, selectedAccount, onSubmit, onClose, pointCost, currentUserPoints }: any) => {
+    const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+    const [searchTermFriend, setSearchTermFriend] = useState('');
+    
+    // States cho Danh sách Nhóm
+    const [groups, setGroups] = useState<any[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+    const [searchTermGroup, setSearchTermGroup] = useState('');
+    const [loadingGroups, setLoadingGroups] = useState(true);
+    const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, isSyncing: false });
+    const [errorGroup, setErrorGroup] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const calculatedCost = selectedFriendIds.size * pointCost;
+    const hasEnoughPoints = currentUserPoints >= calculatedCost;
+
+    // 1. Lọc bạn bè
+    const normalizedSearchTermFriend = removeVietnameseTones(searchTermFriend.toLowerCase());
+    const filteredFriends = allFriends.filter((f: any) => removeVietnameseTones(f.displayName.toLowerCase()).includes(normalizedSearchTermFriend));
+
+    const handleToggleFriendSelect = (id: string) => {
+        const next = new Set(selectedFriendIds);
+        next.has(id) ? next.delete(id) : next.add(id);
+        setSelectedFriendIds(next);
+    };
+
+    const handleSelectAllFriends = () => {
+        if (selectedFriendIds.size === filteredFriends.length) setSelectedFriendIds(new Set());
+        else setSelectedFriendIds(new Set(filteredFriends.map((f: any) => f.userId)));
+    };
+
+    // 2. Lọc nhóm
+    const normalizedSearchTermGroup = removeVietnameseTones(searchTermGroup.toLowerCase());
+    const filteredGroups = groups.filter((g: any) => removeVietnameseTones((g.name || '').toLowerCase()).includes(normalizedSearchTermGroup));
+
+    // 3. Effect: Fetch Danh sách Nhóm (Cache-First + Background Sync)
+    useEffect(() => {
+        let isActive = true;
+        if (!selectedAccount) return;
+
+        const fetchGroups = async () => {
+            const myId = selectedAccount.profile.userId;
+            const cacheKey = `ztool_groups_${myId}`;
+            let cachedGroups: any[] = [];
+
+            try {
+                // A. ĐỌC CACHE TỪ LOCALSTORAGE
+                const cachedData = localStorage.getItem(cacheKey);
+                if (cachedData) {
+                    cachedGroups = JSON.parse(cachedData);
+                    setGroups(cachedGroups);
+                    if (isActive) setLoadingGroups(false); // Nhả UI ngay
+                } else {
+                    if (isActive) setLoadingGroups(true);
+                }
+
+                // B. FETCH ID NHÓM TỪ SERVER
+                const savedProxyStr = localStorage.getItem('userProxy');
+                const proxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+                const payload = { 
+                    cookie: selectedAccount.cookie, 
+                    imei: selectedAccount.imei, 
+                    userAgent: selectedAccount.userAgent, 
+                    proxy 
+                };
+
+                const resIds = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-groups`, payload);
+                if (!resIds.data.success) throw new Error("Không lấy được danh sách nhóm.");
+                
+                const fetchedGroupIds = resIds.data.groups || [];
+
+                // Bảo vệ Silent Limit
+                if (fetchedGroupIds.length === 0 && cachedGroups.length > 5) {
+                    console.warn("🛡️ API Zalo trả về 0 nhóm. Giữ nguyên cache.");
+                    if (isActive) setLoadingGroups(false);
+                    return;
+                }
+
+                if (!isActive) return;
+
+                // C. SMART DIFFING
+                const cachedIds = cachedGroups.map(g => g.id);
+                const newIds = fetchedGroupIds.filter((id: string) => !cachedIds.includes(id));
+                const existingIdsToUpdate = fetchedGroupIds.filter((id: string) => cachedIds.includes(id));
+                
+                let accumulatedGroups = cachedGroups.filter(g => fetchedGroupIds.includes(g.id));
+                
+                if (isActive) {
+                    setGroups([...accumulatedGroups]);
+                    localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
+                    setLoadingGroups(false);
+                }
+
+                const prioritizedIds = [...newIds, ...existingIdsToUpdate];
+                if (prioritizedIds.length === 0) return;
+
+                if (isActive) setSyncProgress({ current: 0, total: prioritizedIds.length, isSyncing: true });
+
+                // D. ĐỒNG BỘ CHI TIẾT THEO BATCH
+                const BATCH_SIZE = 5;
+                for (let i = 0; i < prioritizedIds.length; i += BATCH_SIZE) {
+                    if (!isActive) break;
+                    const batchIds = prioritizedIds.slice(i, i + BATCH_SIZE);
+                    try {
+                        const batchRes = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/sync-groups-batch`, { ...payload, batchIds });
+                        if (batchRes.data.success && isActive) {
+                            batchRes.data.groups.forEach((newG: any) => {
+                                const idx = accumulatedGroups.findIndex(g => g.id === newG.id);
+                                if (idx >= 0) accumulatedGroups[idx] = newG;
+                                else accumulatedGroups.push(newG);
+                            });
+                            setGroups([...accumulatedGroups]);
+                            localStorage.setItem(cacheKey, JSON.stringify(accumulatedGroups));
+                            setSyncProgress(prev => ({ ...prev, current: Math.min(i + BATCH_SIZE, prioritizedIds.length) }));
+                        }
+                    } catch (err) {}
+                    if (i + BATCH_SIZE < prioritizedIds.length && isActive) {
+                        await new Promise(r => setTimeout(r, 1500));
+                    }
+                }
+                if (isActive) setSyncProgress(prev => ({ ...prev, isSyncing: false }));
+            } catch (err: any) {
+                if (isActive && cachedGroups.length === 0) setErrorGroup(err.message);
+            } finally {
+                if (isActive) setLoadingGroups(false);
+            }
+        };
+
+        fetchGroups();
+        return () => { isActive = false; };
+    }, [selectedAccount]);
+
+    const handleSubmit = async () => {
+        if (!selectedGroupId || selectedFriendIds.size === 0 || isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await onSubmit(selectedGroupId, Array.from(selectedFriendIds));
+        } catch (err: any) {
+            setErrorGroup(err.message);
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl flex flex-col h-[85vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-white text-lg flex items-center gap-2"><FiUsers /> Mời bạn bè vào nhóm</h3>
+                    <button onClick={onClose}><FiX size={20} className="text-white hover:text-gray-300"/></button>
+                </div>
+                
+                <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                    {/* Cột trái: Chọn bạn bè */}
+                    <div className="w-full md:w-1/2 border-r border-gray-700 p-4 flex flex-col overflow-hidden bg-gray-800/30">
+                        <h4 className="font-bold text-gray-300 mb-3 text-sm">1. Chọn bạn bè cần mời</h4>
+                        <div className="relative mb-3 shrink-0">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            <input type="text" placeholder="Tìm tên bạn bè..." value={searchTermFriend} onChange={e => setSearchTermFriend(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600 outline-none text-sm"/>
+                        </div>
+                        <div className="flex justify-between items-center mb-2 px-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-400">
+                                <input type="checkbox" onChange={handleSelectAllFriends} checked={selectedFriendIds.size === filteredFriends.length && filteredFriends.length > 0} className="rounded border-gray-600 bg-gray-900"/>
+                                Chọn tất cả ({filteredFriends.length})
+                            </label>
+                            <span className="text-xs text-blue-400">Đã chọn: {selectedFriendIds.size}</span>
+                        </div>
+                        <div className="flex-grow overflow-y-auto custom-scrollbar space-y-1 pr-1 border border-gray-700 rounded-md p-1">
+                            {filteredFriends.map((friend: any) => (
+                                <label key={friend.userId} className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${selectedFriendIds.has(friend.userId) ? 'bg-blue-900/30 border border-blue-500/50' : 'hover:bg-gray-700 border border-transparent'}`}>
+                                    <input type="checkbox" checked={selectedFriendIds.has(friend.userId)} onChange={() => handleToggleFriendSelect(friend.userId)} className="form-checkbox h-4 w-4 text-blue-500 rounded border-gray-600 bg-gray-900"/>
+                                    <img src={friend.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full object-cover" />
+                                    <span className="text-white text-sm truncate">{friend.displayName}</span>
+                                </label>
+                            ))}
+                            {filteredFriends.length === 0 && <div className="text-center text-gray-500 py-4 text-sm">Không tìm thấy bạn bè.</div>}
+                        </div>
+                    </div>
+
+                    {/* Cột phải: Chọn nhóm */}
+                    <div className="w-full md:w-1/2 p-4 flex flex-col overflow-hidden bg-gray-800">
+                        <h4 className="font-bold text-gray-300 mb-3 text-sm">2. Chọn nhóm đích đến</h4>
+                        {syncProgress.isSyncing && (
+                            <div className="text-xs text-blue-400 flex items-center gap-2 animate-pulse mb-2 shrink-0">
+                                <FiLoader className="animate-spin" /> Đang cập nhật dữ liệu nhóm ({syncProgress.current}/{syncProgress.total})...
+                            </div>
+                        )}
+                        <div className="relative mb-3 shrink-0">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            <input type="text" placeholder="Tìm kiếm nhóm..." value={searchTermGroup} onChange={e => setSearchTermGroup(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600 outline-none focus:border-blue-500 text-sm"/>
+                        </div>
+
+                        <div className="flex-grow overflow-y-auto custom-scrollbar border border-gray-700 rounded-md p-1 bg-gray-900/30">
+                            {loadingGroups ? (
+                                <div className="text-center text-gray-500 py-8"><FiLoader className="animate-spin inline mr-2"/> Đang tải...</div>
+                            ) : filteredGroups.length === 0 ? (
+                                <div className="text-center text-gray-500 py-8 text-sm">Không tìm thấy nhóm.</div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {filteredGroups.map(group => (
+                                        <label key={group.id} className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${selectedGroupId === group.id ? 'bg-blue-900/30 border-blue-500/50' : 'hover:bg-gray-700 border-transparent'} border`}>
+                                            <input type="radio" name="groupSelect" checked={selectedGroupId === group.id} onChange={() => setSelectedGroupId(group.id)} className="form-radio text-blue-500 bg-gray-900 border-gray-600"/>
+                                            <img src={group.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full object-cover" />
+                                            <div className="overflow-hidden">
+                                                <p className="text-white text-sm truncate font-medium">{group.name}</p>
+                                                <p className="text-gray-400 text-xs">{group.totalMembers} thành viên</p>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {errorGroup && <div className="text-red-400 text-sm mt-2">{errorGroup}</div>}
+                    </div>
+                </div>
+
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center shrink-0 rounded-b-lg">
+                    <div className="text-sm">
+                        <span className="text-gray-400">Chi phí mời ({selectedFriendIds.size} bạn): </span>
+                        <span className={`font-bold ${hasEnoughPoints ? 'text-yellow-400' : 'text-red-500'}`}>{calculatedCost.toLocaleString()} điểm</span>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold">Hủy</button>
+                        <button 
+                            onClick={handleSubmit} 
+                            disabled={isSubmitting || selectedFriendIds.size === 0 || !selectedGroupId || !hasEnoughPoints}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded font-bold disabled:opacity-50 transition-all flex items-center gap-2"
+                        >
+                            {isSubmitting ? <FiLoader className="animate-spin"/> : <FiCheckCircle />} Xác nhận mời
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // COMPONENT: SendMessageModal (Gửi tin nhắn đơn lẻ - CÓ FILE & THỜI GIAN)
 const SendMessageModal = ({ friend, onClose, onSend, pointCost, currentUserPoints }: any) => {
     const [message, setMessage] = useState('');
@@ -277,8 +514,10 @@ export default function ListFriendZaloPage() {
     const [notification, setNotification] = useState<string | null>(null);
     const [isBulkMessageModalOpen, setIsBulkMessageModalOpen] = useState(false);
     const [isBulkUnfriendModalOpen, setIsBulkUnfriendModalOpen] = useState(false);
+    const [isBulkInviteModalOpen, setIsBulkInviteModalOpen] = useState(false); // ✨ State MỚI cho chức năng Mời vào nhóm
     const [bulkMessageSuccessInfo, setBulkMessageSuccessInfo] = useState<{ count: number } | null>(null);
     const [bulkUnfriendSuccessInfo, setBulkUnfriendSuccessInfo] = useState<{ count: number } | null>(null);
+    const [bulkInviteSuccessInfo, setBulkInviteSuccessInfo] = useState<{ count: number } | null>(null); // ✨ State MỚI cho thông báo Mời
     const [pendingUnfriendIds, setPendingUnfriendIds] = useState<Set<string>>(new Set());
     const savedProxyStr = localStorage.getItem('userProxy');
     const savedProxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
@@ -452,6 +691,38 @@ export default function ListFriendZaloPage() {
         } catch (err: any) { setError(err.message); alert(`Lỗi: ${err.message}`); }
     };
 
+    // ✨ THÊM MỚI: Xử lý Mời vào nhóm hàng loạt
+    const handleBulkInviteSubmit = async (groupId: string, friendIds: string[]) => {
+        if (!selectedAccount || !pointCosts || !user) { alert("Vui lòng chọn tài khoản."); return; }
+        const totalCost = friendIds.length * (pointCosts.add_member_group || 0); // Sử dụng chuẩn điểm add_member_group
+        
+        setIsBulkInviteModalOpen(false);
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) throw new Error("Không tìm thấy token.");
+            
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/addMemberToGroupAPI`, {
+                token,
+                userId: selectedAccount.profile.userId,
+                groupId: groupId,
+                phones: friendIds,
+                type: 'uid' // Báo cho BE biết đây là UID, không phải SĐT
+            });
+
+            const data = response.data;
+            if (data.code !== 0) {
+                if (data.code === 3) router.push('/logout');
+                throw new Error(data.message || data.mess || "Tạo yêu cầu thất bại.");
+            }
+            
+            updateUserPoints(user.point - totalCost);
+            setBulkInviteSuccessInfo({ count: friendIds.length });
+        } catch (err: any) {
+            setError(err.message);
+            alert(`Lỗi: ${err.message}`);
+        }
+    };
+
     const createDeleteFriendRequest = async (friendIdsToDelete: string[]) => {
         if (!selectedAccount || !pointCosts || !user) { throw new Error("Thiếu thông tin."); }
         const cost = (pointCosts.delete_friend || 0) * friendIdsToDelete.length;
@@ -488,9 +759,14 @@ export default function ListFriendZaloPage() {
             {messagingFriend && selectedAccount && ( <SendMessageModal friend={messagingFriend} onClose={() => setMessagingFriend(null)} onSend={handleSendMessage} pointCost={pointCosts?.send_mess_friend || 0} currentUserPoints={user?.point || 0} /> )}
             {isBulkMessageModalOpen && ( <BulkSendMessageModal allFriends={friends} onClose={() => setIsBulkMessageModalOpen(false)} onSubmit={handleBulkSendSubmit} pointCost={pointCosts?.send_mess_friend || 0} currentUserPoints={user?.point || 0} /> )}
             {isBulkUnfriendModalOpen && ( <BulkUnfriendModal allFriends={friends} onClose={() => setIsBulkUnfriendModalOpen(false)} onSubmit={handleBulkUnfriendSubmit} pointCost={pointCosts?.delete_friend || 0} currentUserPoints={user?.point || 0} /> )}
+            
+            {/* ✨ THÊM MỚI: Nhúng Component Mời vào nhóm và Modal Thông báo Thành công */}
+            {isBulkInviteModalOpen && ( <BulkInviteToGroupModal allFriends={friends} selectedAccount={selectedAccount} onClose={() => setIsBulkInviteModalOpen(false)} onSubmit={handleBulkInviteSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} /> )}
+            {bulkInviteSuccessInfo && ( <SuccessModal title="Yêu cầu Mời vào nhóm đã được tạo" message={`Đã tạo yêu cầu mời <span class="font-bold">${bulkInviteSuccessInfo.count}</span> bạn bè vào nhóm thành công!`} onClose={() => setBulkInviteSuccessInfo(null)} onViewProgress={() => router.push('/dashboard/listRequestAddMemberGroup')} /> )}
+            
             {bulkMessageSuccessInfo && ( <SuccessModal title="Yêu cầu Gửi Tin nhắn đã được tạo" message={`Đã tạo yêu cầu gửi tin nhắn đến <span class="font-bold">${bulkMessageSuccessInfo.count}</span> thành viên thành công!`} onClose={() => setBulkMessageSuccessInfo(null)} onViewProgress={() => router.push('/dashboard/listSendMessageStranger')} /> )}
             {bulkUnfriendSuccessInfo && ( <SuccessModal title="Yêu cầu Hủy Kết bạn đã được tạo" message={`Đã tạo yêu cầu hủy kết bạn với <span class="font-bold">${bulkUnfriendSuccessInfo.count}</span> thành viên thành công!`} onClose={() => setBulkUnfriendSuccessInfo(null)} onViewProgress={() => router.push('/dashboard/listRequestDeleteFriend')} /> )}
-            <div className="flex flex-wrap justify-between items-center gap-4 mb-6"><h1 className="text-3xl font-bold text-white flex items-center gap-3"><FiUsers />Danh sách bạn bè</h1>{isClient && selectedAccount && !loading && friends.length > 0 && (<div className="flex items-center gap-2"><button onClick={() => setIsBulkMessageModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition duration-300 text-sm flex items-center gap-2"><FiMessageSquare/> Gửi tin nhắn hàng loạt</button><button onClick={() => setIsBulkUnfriendModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition duration-300 text-sm flex items-center gap-2"><FiUserX/> Hủy kết bạn hàng loạt</button></div>)}</div>
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6"><h1 className="text-3xl font-bold text-white flex items-center gap-3"><FiUsers />Danh sách bạn bè</h1>{isClient && selectedAccount && !loading && friends.length > 0 && (<div className="flex items-center gap-2"><button onClick={() => setIsBulkMessageModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition duration-300 text-sm flex items-center gap-2"><FiMessageSquare/> Gửi tin nhắn hàng loạt</button> <button onClick={() => setIsBulkInviteModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition duration-300 text-sm flex items-center gap-2"><FiUsers/> Mời vào nhóm</button> <button onClick={() => setIsBulkUnfriendModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition duration-300 text-sm flex items-center gap-2"><FiUserX/> Hủy kết bạn hàng loạt</button></div>)}</div>
             {isClient && selectedAccount && !loading && friends.length > 0 && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"><StatsCard icon={<FiUsers size={24} className="text-blue-400" />} title="Tổng số bạn bè" value={friendStats.total} color="#3b82f6" /><StatsCard icon={<FiMale size={24} className="text-sky-400" />} title="Bạn bè là Nam" value={friendStats.male} color="#38bdf8" /><StatsCard icon={<FiFemale size={24} className="text-pink-400" />} title="Bạn bè là Nữ" value={friendStats.female} color="#f472b6" /></div>)}
             {isClient && selectedAccount && !loading && (<div className="flex items-center bg-gray-800 border border-gray-700 rounded-md mb-6 focus-within:ring-2 focus-within:ring-blue-500"><FiSearch className="text-gray-400 mx-4" /><input type="text" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-transparent text-white py-3 pr-4 focus:outline-none"/></div>)}
             {renderContent()}

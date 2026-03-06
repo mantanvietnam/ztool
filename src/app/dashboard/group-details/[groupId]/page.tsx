@@ -219,44 +219,173 @@ const BulkAddFriendModal = ({ allMembers, onSubmit, onClose, pointCost, currentU
 };
 
 // 3. POPUP THÊM THÀNH VIÊN
-const AddMemberModal = ({ onSubmit, onClose, pointCost, currentUserPoints }: { onSubmit: (phones: string[]) => void; onClose: () => void; pointCost: number; currentUserPoints: number; }) => {
+// 3. POPUP THÊM THÀNH VIÊN (ĐÃ NÂNG CẤP TÍCH HỢP CHỌN BẠN BÈ)
+const AddMemberModal = ({ onSubmit, onClose, pointCost, currentUserPoints, selectedAccount }: { onSubmit: (data: string[], type: 'phone' | 'uid') => void; onClose: () => void; pointCost: number; currentUserPoints: number; selectedAccount: any; }) => {
+    const [activeTab, setActiveTab] = useState<'phone' | 'uid'>('phone');
     const [phoneList, setPhoneList] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [phoneCount, setPhoneCount] = useState(0);
-    const [calculatedCost, setCalculatedCost] = useState(0);
+
+    // States cho tab Bạn Bè
+    const [friends, setFriends] = useState<any[]>([]);
+    const [loadingFriends, setLoadingFriends] = useState(false);
+    const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+    const [friendSearch, setFriendSearch] = useState('');
 
     const cleanPhoneNumber = (raw: string) => raw.replace(/\D/g, ''); 
+    const validPhones = useMemo(() => phoneList.split('\n').map(p => cleanPhoneNumber(p)).filter(p => p.length >= 9 && p.length <= 15), [phoneList]);
+
+    const currentCount = activeTab === 'phone' ? validPhones.length : selectedFriendIds.size;
+    const calculatedCost = currentCount * pointCost;
     const hasEnoughPoints = currentUserPoints >= calculatedCost;
 
+    // Tự động fetch danh sách bạn bè khi chọn sang Tab UID (Áp dụng Cache-First)
     useEffect(() => {
-        const cleanedPhones = phoneList.split('\n').map(p => cleanPhoneNumber(p)).filter(p => p.length >= 9);
-        setPhoneCount(cleanedPhones.length);
-        setCalculatedCost(cleanedPhones.length * pointCost);
-        if (cleanedPhones.length > 0) setError('');
-    }, [phoneList, pointCost]);
+        if (activeTab === 'uid' && selectedAccount) {
+            const fetchFriends = async () => {
+                const myId = selectedAccount.profile.userId;
+                const cacheKey = `ztool_friends_${myId}`;
+                let cachedFriends: any[] = [];
+
+                // 1. ĐỌC CACHE VÀ HIỂN THỊ NGAY LẬP TỨC
+                const cachedData = localStorage.getItem(cacheKey);
+                if (cachedData) {
+                    cachedFriends = JSON.parse(cachedData);
+                    setFriends(cachedFriends);
+                    setLoadingFriends(false); // Tắt loading ngay vì đã có data
+                } else {
+                    // Chỉ bật vòng xoay loading nếu thực sự không có cache
+                    if (friends.length === 0) setLoadingFriends(true);
+                }
+
+                // 2. ÂM THẦM GỌI API ĐỂ LẤY DỮ LIỆU MỚI NHẤT
+                try {
+                    const savedProxyStr = localStorage.getItem('userProxy');
+                    const proxy = savedProxyStr ? JSON.parse(savedProxyStr) : null;
+                    const res = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-friends`, {
+                        cookie: selectedAccount.cookie,
+                        imei: selectedAccount.imei,
+                        userAgent: selectedAccount.userAgent,
+                        proxy
+                    });
+
+                    if (res.data.success) {
+                        const newFriends = res.data.friends || [];
+
+                        // 3. KHIÊN BẢO VỆ SILENT LIMIT (Chống API trả về rỗng do quá tải)
+                        if (newFriends.length === 0 && cachedFriends.length > 10) {
+                            console.warn("🛡️ API Zalo trả về 0 bạn bè. Kích hoạt khiên bảo vệ Cache!");
+                            return; 
+                        }
+
+                        // 4. CẬP NHẬT UI & CACHE BẰNG DỮ LIỆU MỚI
+                        setFriends(newFriends);
+                        localStorage.setItem(cacheKey, JSON.stringify(newFriends));
+                    }
+                } catch (err: any) {
+                    // Chỉ báo lỗi hiển thị nếu hoàn toàn không có data trong cache
+                    if (cachedFriends.length === 0) {
+                        setError("Lỗi tải danh sách bạn bè: " + err.message);
+                    }
+                } finally {
+                    setLoadingFriends(false);
+                }
+            };
+            
+            fetchFriends();
+        }
+    }, [activeTab, selectedAccount]);
+
+    const filteredFriends = useMemo(() => {
+        if (!friendSearch) return friends;
+        const normalizedSearch = removeVietnameseTones(friendSearch.toLowerCase());
+        return friends.filter(f => removeVietnameseTones(f.displayName.toLowerCase()).includes(normalizedSearch));
+    }, [friends, friendSearch]);
+
+    const handleToggleFriend = (id: string) => {
+        const next = new Set(selectedFriendIds);
+        next.has(id) ? next.delete(id) : next.add(id);
+        setSelectedFriendIds(next);
+    };
 
     const handleSubmit = async () => {
         if (isSubmitting) return;
         if (!hasEnoughPoints) { setError(`Không đủ điểm.`); return; }
-        const finalPhones = phoneList.split('\n').map(p => cleanPhoneNumber(p)).filter(p => p.length >= 9 && p.length <= 15);
-        if (finalPhones.length === 0) { setError("Vui lòng nhập ít nhất một số điện thoại hợp lệ."); return; }
+        if (currentCount === 0) { setError("Vui lòng chọn ít nhất 1 người hoặc nhập SĐT."); return; }
         
         setIsSubmitting(true);
-        try { await onSubmit(finalPhones); } catch (err: any) { setError(err.message); setIsSubmitting(false); }
+        try { 
+            await onSubmit(activeTab === 'phone' ? validPhones : Array.from(selectedFriendIds), activeTab); 
+        } catch (err: any) { 
+            setError(err.message); 
+            setIsSubmitting(false); 
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center"><h3 className="font-bold text-white text-lg">Thêm thành viên (SĐT)</h3><button onClick={onClose}><FiX className="text-gray-400 hover:text-white"/></button></div>
-                <div className="p-6 space-y-4">
-                    <p className="text-gray-300 text-sm">Nhập danh sách SĐT, mỗi số một dòng (chấp nhận dấu cách, chấm, gạch ngang).</p>
-                    <textarea rows={8} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="0912345678&#10;0987.654.321" className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 font-mono"/>
-                    <div className="flex justify-between text-sm"><span className="text-gray-400">Hợp lệ: <b className="text-white">{phoneCount}</b></span><span className={hasEnoughPoints ? "text-yellow-400" : "text-red-500"}>Phí: {calculatedCost.toLocaleString()} điểm</span></div>
-                    {error && <div className="bg-red-500/10 border-l-4 border-red-500 p-2 text-sm text-red-300 flex items-center gap-2"><FiAlertTriangle/> {error}</div>}
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-white text-lg">Thêm thành viên</h3>
+                    <button onClick={onClose}><FiX className="text-gray-400 hover:text-white"/></button>
                 </div>
-                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button><button onClick={handleSubmit} disabled={isSubmitting || phoneCount === 0 || !hasEnoughPoints} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 flex items-center gap-2">{isSubmitting ? <FiLoader className="animate-spin"/> : <FiUserPlus />} Thêm</button></div>
+
+                {/* Tabs Chuyển Đổi */}
+                <div className="flex border-b border-gray-700 shrink-0">
+                    <button onClick={() => {setActiveTab('phone'); setError('');}} className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'phone' ? 'border-b-2 border-blue-500 text-blue-400 bg-gray-800' : 'text-gray-400 hover:text-white bg-gray-900/50'}`}>Nhập SĐT</button>
+                    <button onClick={() => {setActiveTab('uid'); setError('');}} className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'uid' ? 'border-b-2 border-blue-500 text-blue-400 bg-gray-800' : 'text-gray-400 hover:text-white bg-gray-900/50'}`}>Chọn từ Bạn Bè</button>
+                </div>
+
+                <div className="p-6 flex-grow overflow-hidden flex flex-col space-y-4">
+                    {activeTab === 'phone' ? (
+                        <>
+                            <p className="text-gray-300 text-sm">Nhập danh sách SĐT, mỗi số một dòng (chấp nhận dấu cách, chấm, gạch ngang).</p>
+                            <textarea rows={8} value={phoneList} onChange={(e) => setPhoneList(e.target.value)} placeholder="0912345678&#10;0987.654.321" className="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 font-mono resize-none"/>
+                        </>
+                    ) : (
+                        <div className="flex flex-col h-64 md:h-80">
+                            <div className="relative mb-3 shrink-0">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                <input type="text" placeholder="Tìm tên bạn bè..." value={friendSearch} onChange={e => setFriendSearch(e.target.value)} className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-md border border-gray-600 outline-none focus:border-blue-500"/>
+                            </div>
+                            <div className="flex justify-between items-center text-xs mb-2 shrink-0">
+                                <span className="text-gray-400">Đã chọn: <b className="text-white">{selectedFriendIds.size}</b></span>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setSelectedFriendIds(new Set(filteredFriends.map(f => f.userId)))} className="text-blue-400 hover:underline">Tất cả</button>
+                                    <button onClick={() => setSelectedFriendIds(new Set())} className="text-blue-400 hover:underline">Bỏ chọn</button>
+                                </div>
+                            </div>
+                            <div className="flex-grow overflow-y-auto custom-scrollbar space-y-1 pr-2 border border-gray-700 rounded-md p-2 bg-gray-900/30">
+                                {loadingFriends ? (
+                                    <div className="text-center text-gray-500 py-4"><FiLoader className="animate-spin inline"/> Đang tải bạn bè...</div>
+                                ) : filteredFriends.length === 0 ? (
+                                    <div className="text-center text-gray-500 italic py-4">Không tìm thấy bạn bè.</div>
+                                ) : (
+                                    filteredFriends.map(f => (
+                                        <label key={f.userId} className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${selectedFriendIds.has(f.userId) ? 'bg-blue-900/30 border border-blue-500/50' : 'hover:bg-gray-700 border border-transparent'}`}>
+                                            <input type="checkbox" checked={selectedFriendIds.has(f.userId)} onChange={() => handleToggleFriend(f.userId)} className="form-checkbox text-blue-500 rounded border-gray-600 bg-gray-900"/>
+                                            <img src={f.avatar || '/avatar-default-crm.png'} className="w-8 h-8 rounded-full object-cover" />
+                                            <span className="text-white text-sm truncate">{f.displayName}</span>
+                                        </label>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex justify-between text-sm shrink-0">
+                        <span className="text-gray-400">Hợp lệ: <b className="text-white">{currentCount}</b></span>
+                        <span className={hasEnoughPoints ? "text-yellow-400" : "text-red-500"}>Phí: {calculatedCost.toLocaleString()} điểm</span>
+                    </div>
+                    {error && <div className="bg-red-500/10 border-l-4 border-red-500 p-2 text-sm text-red-300 flex items-center gap-2 shrink-0"><FiAlertTriangle/> {error}</div>}
+                </div>
+
+                <div className="p-4 bg-gray-900 border-t border-gray-700 flex justify-end gap-3 shrink-0">
+                    <button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md">Hủy</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting || currentCount === 0 || !hasEnoughPoints} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 flex items-center gap-2">
+                        {isSubmitting ? <FiLoader className="animate-spin"/> : <FiUserPlus />} Thêm
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -855,18 +984,19 @@ export default function GroupDetailsPage() {
         } catch (err: any) { alert(err.message); }
     };
 
-    // 3. THÊM THÀNH VIÊN (API)
-    const handleAddMemberSubmit = async (phones: string[]) => {
+    // 3. THÊM THÀNH VIÊN (API) - Đã cập nhật để hỗ trợ type
+    const handleAddMemberSubmit = async (data: string[], type: 'phone' | 'uid') => {
         if (!selectedAccount || !user || !pointCosts) return;
-        const totalCost = phones.length * (pointCosts.add_member_group || 0);
+        const totalCost = data.length * (pointCosts.add_member_group || 0);
         if (user.point < totalCost) { alert("Không đủ điểm."); return; }
         setIsAddMemberModalOpen(false);
         try {
             const token = localStorage.getItem('authToken');
-            const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/addMemberToGroupAPI`, { token, userId: selectedAccount.profile.userId, groupId, phones });
+            // Truyền type xuống API, biến 'phones' trong API PHP vẫn dùng để chứa mảng data dù nó là SĐT hay UID
+            const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/addMemberToGroupAPI`, { token, userId: selectedAccount.profile.userId, groupId, phones: data, type });
             if (res.data.code != 0) throw new Error(res.data.message || "Lỗi thêm thành viên.");
             updateUserPoints(user.point - totalCost);
-            setSuccessInfo({ title: "Đã tạo yêu cầu", message: `Thêm <span class="font-bold">${phones.length}</span> số điện thoại.`, redirectUrl: '/dashboard/listRequestAddMemberGroup' });
+            setSuccessInfo({ title: "Đã tạo yêu cầu", message: `Thêm <span class="font-bold">${data.length}</span> người vào nhóm.`, redirectUrl: '/dashboard/listRequestAddMemberGroup' });
         } catch (err: any) { alert(err.message); }
     };
 
@@ -892,7 +1022,8 @@ export default function GroupDetailsPage() {
         <div className="flex-1 p-6 md:p-8">
             {isBulkSendModalOpen && <BulkSendMessageModal allMembers={details.members} onClose={() => setIsBulkSendModalOpen(false)} onSubmit={handleBulkSendSubmit} pointCost={pointCosts?.send_mess_friend || 0} currentUserPoints={user?.point || 0} />}
             {isBulkAddFriendModalOpen && <BulkAddFriendModal allMembers={details.members} onClose={() => setIsBulkAddFriendModalOpen(false)} onSubmit={handleBulkAddFriendSubmit} pointCost={pointCosts?.add_friend || 0} currentUserPoints={user?.point || 0}/>}
-            {isAddMemberModalOpen && <AddMemberModal onClose={() => setIsAddMemberModalOpen(false)} onSubmit={handleAddMemberSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} />}
+            {isAddMemberModalOpen && <AddMemberModal selectedAccount={selectedAccount} onClose={() => setIsAddMemberModalOpen(false)} onSubmit={handleAddMemberSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} />}
+
             {isInviteGroupModalOpen && <InviteToGroupModal currentGroupId={groupId} allMembers={details.members} selectedAccount={selectedAccount} onClose={() => setIsInviteGroupModalOpen(false)} onSubmit={handleInviteToGroupSubmit} pointCost={pointCosts?.add_member_group || 0} currentUserPoints={user?.point || 0} />}
             {isAddToTagModalOpen && (
                 <AddMembersToTagModal 
