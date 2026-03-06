@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useZaloAccounts } from '@/contexts/ZaloAccountContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiPauseCircle, FiPlayCircle, FiPlus, FiLoader, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight, FiXCircle, FiBarChart2, FiUsers, FiAlertTriangle, FiCreditCard, FiPaperclip, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 import MessageComposer from '@/components/MessageComposer';
 
@@ -176,6 +176,43 @@ export default function ListSendMessageStrangerPage() {
     useEffect(() => { const fetchPendingRequests = async () => { if (!selectedAccount) { setStats(prev => ({ ...prev, pending: 0 })); return; } setLoadingPendingCount(true); try { const { cookie, imei, userAgent } = selectedAccount; const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/get-sent-friend-requests`, { cookie, imei, userAgent, proxy: savedProxy  }); if (response.data.success) { setStats(prev => ({ ...prev, pending: Object.keys(response.data.requests).length })); } } catch (error) { console.error("Lỗi khi lấy số lượng yêu cầu đang chờ:", error); } finally { setLoadingPendingCount(false); } }; fetchPendingRequests(); }, [selectedAccount]);
     const handleUpdateStatus = async (jobId: string | number, status: 'cancel' | 'pause' | 'process') => { if (status === 'cancel') { if (!confirm(`Bạn có chắc chắn muốn Hủy bỏ công việc #${jobId} không?`)) { return; } } setUpdatingJobId(jobId); const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; } try { const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/updateStatusRequestSendMessageAPI`, { token: token, id: jobId, status: status }); const data = response.data; if (data.code === 0) { setNotification(data.mess || "Cập nhật trạng thái thành công!"); const currentPage = parseInt(searchParams.get('page') || '1', 10); await fetchData(currentPage); } else if (data.code === 3) { router.push('/logout'); } else { throw new Error(data.mess || "Cập nhật thất bại."); } } catch (err: any) { setNotification(`Lỗi: ${err.response?.data?.mess || err.message}`); } finally { setUpdatingJobId(null); } };
 
+    // --- [BỔ SUNG LOGIC] HÀM LÀM MỚI TIẾN ĐỘ JOB ---
+    const handleRefreshJob = async (jobId: string | number) => {
+        if (!window.confirm("Chỉ làm mới yêu cầu khi lệnh gửi tin của bạn là dừng chạy quá 10 phút và tài khoản của bạn chưa bị hạn chế gửi tin nhắn cho người lạ. Bạn có chắc chắn muốn tiếp tục?")) {
+            return;
+        }
+
+        setUpdatingJobId(jobId);
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            router.push('/logout');
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/apis/refreshRequestSendMessAPI`, {
+                token: token,
+                id: jobId
+            });
+            
+            const data = response.data;
+            if (data.code === 0) {
+                setNotification("Đã làm mới yêu cầu thành công.");
+                const currentPage = parseInt(searchParams.get('page') || '1', 10);
+                await fetchData(currentPage);
+            } else if (data.code === 3) {
+                window.alert("Phiên đăng nhập hết hiệu lực.");
+                router.push('/logout');
+            } else {
+                window.alert(data.mess || "Có lỗi xảy ra khi làm mới.");
+            }
+        } catch (err: any) {
+            window.alert(`Lỗi kết nối: ${err.response?.data?.mess || err.message}`);
+        } finally {
+            setUpdatingJobId(null);
+        }
+    };
+    
     const handleCreateMessageRequest = async (message: string, phoneNumbers: string[], files: File[], timeSend: string) => {
         const token = localStorage.getItem('authToken'); if (!token) { router.push('/logout'); return; }
         if (!selectedAccount) { throw new Error("Vui lòng chọn một tài khoản Zalo để thực hiện."); }
@@ -222,7 +259,7 @@ export default function ListSendMessageStrangerPage() {
         } catch (err: any) { throw new Error(err.response?.data?.mess || err.message); }
     };
     
-    const renderMainContent = () => { if (loading) return <div className="p-8 text-center text-white"><FiLoader className="animate-spin mx-auto" size={32}/></div>; if (error) return <div className="p-8 text-center text-red-400">{error}</div>; return ( <>{<div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm text-left text-gray-300"><thead className="text-xs text-gray-400 uppercase bg-gray-700"><tr><th scope="col" className="px-6 py-3">Thời gian tạo</th><th scope="col" className="px-6 py-3">Loại tin nhắn</th><th scope="col" className="px-6 py-3">Đã gửi / Tổng số</th><th scope="col" className="px-6 py-3">Trạng thái</th><th scope="col" className="px-6 py-3 text-center">Hành động</th></tr></thead><tbody>{jobs.map((job) => (<tr key={job.id} className="border-b border-gray-700 hover:bg-gray-700/50"><td className="px-6 py-4">{job.create_at}</td><td className="px-6 py-4"><TypeBadge type={job.type} /></td><td className="px-6 py-4 font-mono">{job.quantity_done} / {job.quantity_total}</td><td className="px-6 py-4"><StatusBadge status={job.status} /></td><td className="px-6 py-4"><div className="flex justify-center items-center gap-4"><button onClick={() => setViewingStatsJob(job)} className="text-blue-400 hover:text-blue-300" title="Xem thống kê"><FiBarChart2 size={18} /></button>{updatingJobId === job.id ? <FiLoader className="animate-spin" /> : (<>{job.status === 'process' && (<><button onClick={() => handleUpdateStatus(job.id, 'cancel')} className="text-red-400 hover:text-red-300" title="Hủy bỏ"><FiXCircle size={18} /></button><button onClick={() => handleUpdateStatus(job.id, 'pause')} className="text-yellow-400 hover:text-yellow-300" title="Tạm dừng"><FiPauseCircle size={18} /></button></>)}{job.status === 'pause' && (<><button onClick={() => handleUpdateStatus(job.id, 'cancel')} className="text-red-400 hover:text-red-300" title="Hủy bỏ"><FiXCircle size={18} /></button><button onClick={() => handleUpdateStatus(job.id, 'process')} className="text-green-400 hover:text-green-300" title="Tiếp tục"><FiPlayCircle size={18} /></button></>)}{(job.status === 'done' || job.status === 'cancel') && ( <span>--</span> )}</>)}</div></td></tr>))}</tbody></table></div></div>}<Pagination currentPage={pagination.currentPage} totalPages={pagination.totalPages} basePath="/dashboard/listSendMessageStranger" /></> );};
+    const renderMainContent = () => { if (loading) return <div className="p-8 text-center text-white"><FiLoader className="animate-spin mx-auto" size={32}/></div>; if (error) return <div className="p-8 text-center text-red-400">{error}</div>; return ( <>{<div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm text-left text-gray-300"><thead className="text-xs text-gray-400 uppercase bg-gray-700"><tr><th scope="col" className="px-6 py-3">Thời gian tạo</th><th scope="col" className="px-6 py-3">Loại tin nhắn</th><th scope="col" className="px-6 py-3">Đã gửi / Tổng số</th><th scope="col" className="px-6 py-3">Trạng thái</th><th scope="col" className="px-6 py-3 text-center">Hành động</th></tr></thead><tbody>{jobs.map((job) => (<tr key={job.id} className="border-b border-gray-700 hover:bg-gray-700/50"><td className="px-6 py-4">{job.create_at}</td><td className="px-6 py-4"><TypeBadge type={job.type} /></td><td className="px-6 py-4 font-mono">{job.quantity_done} / {job.quantity_total}</td><td className="px-6 py-4"><StatusBadge status={job.status} /></td><td className="px-6 py-4"><div className="flex justify-center items-center gap-4"><button onClick={() => setViewingStatsJob(job)} className="text-blue-400 hover:text-blue-300" title="Xem thống kê"><FiBarChart2 size={18} /></button>{updatingJobId === job.id ? <FiLoader className="animate-spin" /> : (<>{job.status === 'process' && (<><button onClick={() => handleRefreshJob(job.id)} className="text-emerald-400 hover:text-emerald-300" title="Làm mới tiến độ"><FiRefreshCw size={18} /></button><button onClick={() => handleUpdateStatus(job.id, 'cancel')} className="text-red-400 hover:text-red-300" title="Hủy bỏ"><FiXCircle size={18} /></button><button onClick={() => handleUpdateStatus(job.id, 'pause')} className="text-yellow-400 hover:text-yellow-300" title="Tạm dừng"><FiPauseCircle size={18} /></button></>)}{job.status === 'pause' && (<><button onClick={() => handleUpdateStatus(job.id, 'cancel')} className="text-red-400 hover:text-red-300" title="Hủy bỏ"><FiXCircle size={18} /></button><button onClick={() => handleUpdateStatus(job.id, 'process')} className="text-green-400 hover:text-green-300" title="Tiếp tục"><FiPlayCircle size={18} /></button></>)}{(job.status === 'done' || job.status === 'cancel') && ( <span>--</span> )}</>)}</div></td></tr>))}</tbody></table></div></div>}<Pagination currentPage={pagination.currentPage} totalPages={pagination.totalPages} basePath="/dashboard/listSendMessageStranger" /></> );};
 
     return (
         <div className="flex-1 p-6 md:p-8">
