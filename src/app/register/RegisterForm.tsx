@@ -55,6 +55,7 @@ export default function RegisterForm() {
                 pass: password,
                 passAgain: passAgain,
                 aff: affCode,
+                //os: 'web'
             });
 
             if (response.data.code === 1 && response.data.infoUser.token) {

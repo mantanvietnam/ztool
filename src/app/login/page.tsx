@@ -137,6 +137,7 @@ export default function LoginPage() {
             const response = await axios.post(apiEndpoint, {
                 phone: phone,
                 pass: password,
+                //os: 'web'
             });
 
             if (response.data.code === 1 && response.data.infoUser.token) {

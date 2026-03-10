@@ -17,6 +17,8 @@ import {
     FiLoader 
 } from 'react-icons/fi';
 
+import DailyCheckInModal from '@/components/DailyCheckInModal'; // (Sửa lại đường dẫn nếu bạn đặt file ở thư mục khác)
+
 // --- Types & Interfaces ---
 interface StatCardProps {
     icon: React.ReactNode;
@@ -364,6 +366,8 @@ export default function DashboardHomePage() {
                 </div>
             </div>
             */}
+
+            <DailyCheckInModal />
         </div>      
     );
 }
