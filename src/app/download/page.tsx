@@ -13,7 +13,7 @@ const DOWNLOAD_LINKS = {
     ios: "https://apps.apple.com/us/app/ztool-ch%C4%83m-s%C3%B3c-kh%C3%A1ch-h%C3%A0ng/id6757388487",
     macos: "https://ztool.phoenixtech.vn/downloads/Ztool-1.0.0-arm64.dmg", 
     windows: "https://ztool.phoenixtech.vn/downloads/Ztool%20Setup%201.0.0.exe", 
-    linux: "https://ztool.phoenixtech.vn/downloads/Ztool-1.0.0-arm64.deb",
+    linux: "https://ztool.phoenixtech.vn/downloads/Ztool-1.0.0.AppImage",
 };
 
 type OS = 'android' | 'ios' | 'macos' | 'windows' | 'linux' | 'unknown';
