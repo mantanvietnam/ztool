@@ -35,6 +35,7 @@ export default function Header() {
                     <Link href="/#features" className="text-gray-300 hover:text-white font-medium transition-colors">Tính năng</Link>
                     <Link href="/#pricing" className="text-gray-300 hover:text-white font-medium transition-colors">Bảng giá</Link>
                     <Link href="/terms" className="text-gray-300 hover:text-white font-medium transition-colors">Điều khoản</Link>
+                    <Link href="/download" className="text-gray-300 hover:text-white font-medium transition-colors">Tải phần mềm</Link>
                 </nav>
 
                 {/* Desktop Buttons */}
@@ -61,6 +62,7 @@ export default function Header() {
                         <Link href="/#features" onClick={toggleMenu} className="text-gray-300 hover:text-white py-2 block border-b border-gray-700/50">Tính năng</Link>
                         <Link href="/#pricing" onClick={toggleMenu} className="text-gray-300 hover:text-white py-2 block border-b border-gray-700/50">Bảng giá</Link>
                         <Link href="/terms" onClick={toggleMenu} className="text-gray-300 hover:text-white py-2 block mb-4">Điều khoản</Link>
+                        <Link href="/download" onClick={toggleMenu} className="text-gray-300 hover:text-white py-2 block mb-4">Tải phần mềm</Link>
                         <div className="flex flex-col gap-3">
                             <Link href="/login" onClick={toggleMenu} className="text-center w-full border border-gray-600 text-gray-300 py-3 rounded-md font-bold hover:bg-gray-700 transition">
                                 Đăng nhập
