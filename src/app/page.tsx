@@ -99,7 +99,7 @@ export default function LandingPage() {
                             Tiếp cận hàng ngàn khách hàng tiềm năng, tăng trưởng doanh thu vượt bậc bằng cách tự động hóa các tác vụ trên Zalo và Google Maps.
                         </p>
                         <div className="flex justify-center gap-4">
-                            <Link href="/register" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md transition duration-300 shadow-lg shadow-blue-500/20">
+                            <Link href="/download" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md transition duration-300 shadow-lg shadow-blue-500/20">
                                 Dùng Thử Miễn Phí
                             </Link>
                             <Link href="#pricing" className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:border-gray-600 font-bold py-3 px-8 rounded-md transition duration-300">

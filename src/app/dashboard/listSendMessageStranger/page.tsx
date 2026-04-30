@@ -81,7 +81,28 @@ const JobStatsModal = ({ job, onClose }: { job: SendMessageJob, onClose: () => v
                             <span className="text-green-500 font-bold text-[13px]">● Không xử lý</span>
                         )}
                     </div>
-                    <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div><div><h4 className="font-semibold text-white mb-2">Nội dung tin nhắn</h4><textarea readOnly value={job.message} rows={4} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-white mt-4 mb-2">Chờ xử lý ({job.list_process.length})</h4><textarea readOnly value={job.list_process.join('\n')} rows={5} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-green-400 mb-2">Gửi thành công ({job.list_done.length})</h4><textarea readOnly value={job.list_done.join('\n')} rows={5} className="w-full bg-gray-900 text-green-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-red-400 mb-2">Gửi lỗi ({job.list_error.length})</h4><textarea readOnly value={job.list_error.join('\n')} rows={5} className="w-full bg-gray-900 text-red-400 text-sm p-2 rounded-md border border-gray-600"/></div></div><div className="p-4 bg-gray-900 flex justify-end"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md">Đóng</button></div></div></div> ); 
+                    <div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Thời gian tạo:</span><span className="text-gray-200">{job.create_at}</span></div><div className="text-sm"><span className="font-semibold text-gray-400 w-40 inline-block">Cập nhật cuối:</span><span className="text-gray-200">{job.update_at}</span></div>
+                    
+                    <div>
+                        <h4 className="font-semibold text-white mb-2">Nội dung tin nhắn</h4>
+                        
+                        {/* CSS để hiển thị đúng các định dạng (in đậm, nghiêng, gạch chân, danh sách...) */}
+                        <style>{`
+                            .message-preview-content b, .message-preview-content strong { font-weight: bold; }
+                            .message-preview-content i, .message-preview-content em { font-style: italic; }
+                            .message-preview-content u { text-decoration: underline; }
+                            .message-preview-content s, .message-preview-content strike { text-decoration: line-through; }
+                            .message-preview-content ul { list-style-type: disc; padding-left: 20px; margin-top: 4px; margin-bottom: 4px; }
+                            .message-preview-content ol { list-style-type: decimal; padding-left: 20px; margin-top: 4px; margin-bottom: 4px; }
+                        `}</style>
+                        
+                        <div 
+                            className="w-full bg-gray-900 text-gray-300 text-sm p-3 rounded-md border border-gray-600 message-preview-content overflow-y-auto max-h-40"
+                            dangerouslySetInnerHTML={{ __html: job.message }}
+                        />
+                    </div>
+
+                    <div><h4 className="font-semibold text-white mt-4 mb-2">Chờ xử lý ({job.list_process.length})</h4><textarea readOnly value={job.list_process.join('\n')} rows={5} className="w-full bg-gray-900 text-gray-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-green-400 mb-2">Gửi thành công ({job.list_done.length})</h4><textarea readOnly value={job.list_done.join('\n')} rows={5} className="w-full bg-gray-900 text-green-300 text-sm p-2 rounded-md border border-gray-600"/></div><div><h4 className="font-semibold text-red-400 mb-2">Gửi lỗi ({job.list_error.length})</h4><textarea readOnly value={job.list_error.join('\n')} rows={5} className="w-full bg-gray-900 text-red-400 text-sm p-2 rounded-md border border-gray-600"/></div></div><div className="p-4 bg-gray-900 flex justify-end"><button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md">Đóng</button></div></div></div> ); 
 };
 
 const SuccessNotification = ({ message, onClose }: { message: string; onClose: () => void; }) => { 
