@@ -21,7 +21,7 @@ const DOWNLOAD_LINKS = {
     windows32: "https://ztool.phoenixtech.vn/downloads/latest/ztool-ia32-setup.exe", 
     
     // Link cho Linux
-    linux: "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64.AppImage",
+    linux: "https://ztool.phoenixtech.vn/downloads/latest/ztool-x86_64.AppImage",
 };
 
 type OS = 'android' | 'ios' | 'mac-intel' | 'mac-apple' | 'mac-unknown' | 'windows-32' | 'windows-64' | 'linux' | 'unknown';
