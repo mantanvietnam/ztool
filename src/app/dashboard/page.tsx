@@ -318,22 +318,22 @@ export default function DashboardHomePage() {
                     <SupportItem 
                         icon={<FiPhone size={20} />} 
                         label="Hotline 24/7" 
-                        value="081.656.0000" 
-                        href="tel:0816560000"
+                        value={process.env.NEXT_PUBLIC_PHONE || '081.656.0000'} 
+                        href={`tel:${process.env.NEXT_PUBLIC_PHONE || '0816560000'}`}
                         actionLabel="Gọi ngay"
                     />
                     <SupportItem 
                         icon={<FiMail size={20} />} 
                         label="Email hỗ trợ" 
-                        value="ztool.ai.vn@gmail.com" 
-                        href="mailto:ztool.ai.vn@gmail.com"
+                        value={process.env.NEXT_PUBLIC_EMAIL || 'ztool.ai.vn@gmail.com'} 
+                        href={`mailto:${process.env.NEXT_PUBLIC_EMAIL || 'ztool.ai.vn@gmail.com'}`}
                         actionLabel="Gửi email"
                     />
                     <SupportItem 
                         icon={<FiFacebook size={20} />} 
                         label="Facebook Admin" 
-                        value="Ztool" 
-                        href="https://www.facebook.com/ztoolvn"
+                        value={process.env.NEXT_PUBLIC_NAME_APP || 'Ztool'} 
+                        href={process.env.NEXT_PUBLIC_FACEBOOK || 'https://www.facebook.com/ztoolvn'}
                         actionLabel="Nhắn tin"
                     />
                 </div>

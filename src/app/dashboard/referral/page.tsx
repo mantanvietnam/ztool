@@ -47,7 +47,10 @@ export default function ReferralPage() {
 
     // --- Effect: Init Data ---
     useEffect(() => {
-        const phone = localStorage.getItem('userPhone') || '0816560000';
+        // Sử dụng biến môi trường làm số mặc định nếu không có trong localStorage
+        //const defaultPhone = process.env.NEXT_PUBLIC_PHONE || '0816560000';
+        const defaultPhone = '0816560000';
+        const phone = localStorage.getItem('userPhone') || defaultPhone;
         const affCode = localStorage.getItem('affiliate_code'); 
 
         // Ưu tiên affiliate_code, nếu không có thì dùng phone
@@ -55,7 +58,10 @@ export default function ReferralPage() {
 
         setUserPhone(phone);
         setReferralCode(finalCode);
-        setReferralLink(`https://ztool.ai.vn/register/?aff=${finalCode}`);
+        
+        // Tự động nhận diện domain hiện tại thay vì fix cứng 'https://ztool.ai.vn'
+        const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://ztool.ai.vn';
+        setReferralLink(`${currentDomain}/register/?aff=${finalCode}`);
     }, []);
 
     // --- Helper: Xử lý Logout ---
@@ -80,7 +86,7 @@ export default function ReferralPage() {
             const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
             let downloadLink = document.createElement("a");
             downloadLink.href = pngUrl;
-            downloadLink.download = `ztool-qr-${referralCode}.png`;
+            downloadLink.download = `${process.env.NEXT_PUBLIC_NAME_APP || 'ztool'}-qr-${referralCode}.png`;
             document.body.appendChild(downloadLink);
             downloadLink.click();
             document.body.removeChild(downloadLink);
@@ -254,7 +260,8 @@ export default function ReferralPage() {
                             size={200}
                             level={"H"}
                             imageSettings={{
-                                src: "/logo-ztool-icon.png", 
+                                // Dùng biến logo từ env để QR sinh ra đúng logo khách hàng
+                                src: process.env.NEXT_PUBLIC_LOGO_URL || "/logo-ztool-icon.png", 
                                 x: undefined,
                                 y: undefined,
                                 height: 40,
@@ -283,13 +290,31 @@ export default function ReferralPage() {
                     Trung tâm hỗ trợ
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <SupportItem icon={<FiPhone size={20} />} label="Hotline 24/7" value="081.656.0000" href="tel:0816560000" actionLabel="Gọi ngay"/>
-                    <SupportItem icon={<FiMail size={20} />} label="Email hỗ trợ" value="tranmanhbk179@gmail.com" href="mailto:tranmanhbk179@gmail.com" actionLabel="Gửi email"/>
-                    <SupportItem icon={<FiFacebook size={20} />} label="Facebook Admin" value="Mạnh Trần (ManMo)" href="https://www.facebook.com/manh.tran.manmo" actionLabel="Nhắn tin"/>
+                    <SupportItem 
+                        icon={<FiPhone size={20} />} 
+                        label="Hotline 24/7" 
+                        value={process.env.NEXT_PUBLIC_PHONE || '081.656.0000'} 
+                        href={`tel:${process.env.NEXT_PUBLIC_PHONE || '0816560000'}`} 
+                        actionLabel="Gọi ngay"
+                    />
+                    <SupportItem 
+                        icon={<FiMail size={20} />} 
+                        label="Email hỗ trợ" 
+                        value={process.env.NEXT_PUBLIC_EMAIL || 'ztool.ai.vn@gmail.com'} 
+                        href={`mailto:${process.env.NEXT_PUBLIC_EMAIL || 'ztool.ai.vn@gmail.com'}`} 
+                        actionLabel="Gửi email"
+                    />
+                    <SupportItem 
+                        icon={<FiFacebook size={20} />} 
+                        label="Facebook Admin" 
+                        value={process.env.NEXT_PUBLIC_NAME_APP || 'Ztool'} 
+                        href={process.env.NEXT_PUBLIC_FACEBOOK || 'https://www.facebook.com/ztoolvn'} 
+                        actionLabel="Nhắn tin"
+                    />
                 </div>
             </div>
 
-            {/* === MODAL CHỈNH SỬA MÃ (ĐÃ CẬP NHẬT) === */}
+            {/* === MODAL CHỈNH SỬA MÃ === */}
             {isEditModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-gray-800 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-fade-in-up">
@@ -321,7 +346,7 @@ export default function ReferralPage() {
                                 
                                 {/* --- KHU VỰC HIỂN THỊ LỖI --- */}
                                 {modalError ? (
-                                    // Nếu có lỗi -> Hiện chữ đỏ (đúng chỗ mũi tên)
+                                    // Nếu có lỗi -> Hiện chữ đỏ
                                     <p className="text-xs text-red-500 font-bold mt-1 animate-pulse flex items-center gap-1">
                                         ⚠ {modalError}
                                     </p>
