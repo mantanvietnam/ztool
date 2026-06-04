@@ -253,7 +253,7 @@ export default function DashboardHomePage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Tổng Quan Ztool</h1>
+                    <h1 className="text-3xl font-bold text-white">Tổng Quan {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}</h1>
                 </div>
                 <span className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
                     Phiên bản: 2.5.0

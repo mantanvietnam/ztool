@@ -77,7 +77,7 @@ export default function PasswordPage() {
       formData.append("newPassword", newPassword);
       formData.append("confirmNewPassword", confirmNewPassword);
 
-      const response = await fetch("https://ztool.phoenixtech.vn/apis/changePasswordAPI", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/changePasswordAPI`, {
         method: "POST",
         body: formData,
       });

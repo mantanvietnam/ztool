@@ -93,7 +93,7 @@ export default function DownloadPage() {
                 return (
                     <div className="flex flex-col items-center gap-4">
                         <a href={os === 'windows-64' ? DOWNLOAD_LINKS.windows64 : DOWNLOAD_LINKS.windows32} className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/30">
-                            <FaWindows size={24} /> Tải Ztool cho Windows
+                            <FaWindows size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Windows
                         </a>
                         <p className="text-gray-400 text-sm">
                             Đã nhận diện: Windows {os === 'windows-64' ? '64-bit' : '32-bit'}
@@ -110,7 +110,7 @@ export default function DownloadPage() {
                 return (
                     <div className="flex flex-col items-center gap-4">
                         <a href={os === 'mac-apple' ? DOWNLOAD_LINKS.macApple : DOWNLOAD_LINKS.macIntel} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-white/10">
-                            <FaApple size={24} /> Tải Ztool cho macOS
+                            <FaApple size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho macOS
                         </a>
                         <p className="text-gray-400 text-sm">
                             Đã nhận diện: Mac {os === 'mac-apple' ? '(Apple Silicon)' : '(Intel)'}
@@ -139,7 +139,7 @@ export default function DownloadPage() {
                 return (
                     <div className="flex flex-col items-center gap-4">
                         <a href={DOWNLOAD_LINKS.linux} className="flex items-center gap-3 bg-yellow-600 hover:bg-yellow-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/30">
-                            <FaLinux size={24} /> Tải Ztool cho Linux (.AppImage)
+                            <FaLinux size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Linux (.AppImage)
                         </a>
                     </div>
                 );
@@ -147,14 +147,14 @@ export default function DownloadPage() {
             case 'android':
                 return (
                     <a href={DOWNLOAD_LINKS.android} className="flex items-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/30">
-                        <FaAndroid size={24} /> Tải App Ztool trên Android
+                        <FaAndroid size={24} /> Tải App {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} trên Android
                     </a>
                 );
 
             case 'ios':
                 return (
                     <a href={DOWNLOAD_LINKS.ios} className="flex items-center gap-3 bg-blue-500 hover:bg-blue-400 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/30">
-                        <FaApple size={24} /> Tải App Ztool trên iOS
+                        <FaApple size={24} /> Tải App {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} trên iOS
                     </a>
                 );
 
@@ -179,7 +179,7 @@ export default function DownloadPage() {
                 <div className="max-w-5xl w-full relative z-10">
                     <div className="text-center mb-16">
                         <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                            Tải Xuống Ztool
+                            Tải Xuống {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}
                         </h1>
                         <p className="text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed">
                             Trải nghiệm công cụ quản lý và tự động hóa mạnh mẽ nhất. 

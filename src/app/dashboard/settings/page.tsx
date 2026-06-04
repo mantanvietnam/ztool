@@ -66,7 +66,7 @@ export default function SettingsPage() {
         const formData = new FormData();
         formData.append("token", token);
 
-        const response = await fetch("https://ztool.phoenixtech.vn/apis/getInfoMemberAPI", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/getInfoMemberAPI`, {
           method: "POST",
           body: formData,
         });

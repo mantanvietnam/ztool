@@ -184,7 +184,7 @@ export default function ReferralPage() {
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                     <FiShare2 className="text-blue-500"/> Mã Giới Thiệu
                 </h1>
-                <p className="text-gray-400 mt-2">Chia sẻ Ztool cùng bạn bè để nhận những phần quà hấp dẫn.</p>
+                <p className="text-gray-400 mt-2">Chia sẻ {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cùng bạn bè để nhận những phần quà hấp dẫn.</p>
             </div>
 
             {/* Main Content */}
