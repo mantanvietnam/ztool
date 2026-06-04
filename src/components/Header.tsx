@@ -16,15 +16,16 @@ export default function Header() {
                 <Link href="/" className="flex items-center gap-3 group">
                     <div className="relative w-10 h-10 overflow-hidden rounded-lg bg-white/10 p-1">
                         <Image 
-                            src="/logo-ztool-icon.png" 
-                            alt="ZTOOL Logo" 
+                            // Tích hợp biến logo
+                            src={process.env.NEXT_PUBLIC_LOGO_URL || "/logo-ztool-icon.png"}
+                            alt={`${process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} Logo`}
                             width={40} 
                             height={40} 
                             className="object-contain w-full h-full"
                         />
                     </div>
                     <span className="text-2xl font-extrabold tracking-wide text-white">
-                        ZTOOL<span className="text-blue-500">.</span>
+                        {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}<span className="text-blue-500">.</span>
                     </span>
                 </Link>
 

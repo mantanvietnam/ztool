@@ -82,7 +82,6 @@ const PricingCard = ({ pkg }: { pkg: Package }) => {
 
 export default function LandingPage() {
     return (
-        // 👇 EM ĐÃ THÊM LẠI: bg-gray-900 text-white vào đây
         <div className="bg-gray-900 text-white min-h-screen flex flex-col font-sans">
             <Header />
 
@@ -90,10 +89,9 @@ export default function LandingPage() {
                 {/* === HERO SECTION === */}
                 <section className="text-center pt-32 pb-20 md:pt-40 md:pb-28 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800">
                     <div className="container mx-auto px-6">
-                        {/* Vì class text-white đã được khai báo ở thẻ cha div ngoài cùng, 
-                            nên h1 và p ở đây sẽ tự động trắng lại, không bị đen nữa */}
                         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight mb-4">
-                            Tự Động Hóa Zalo Marketing Với <span className="text-blue-500">ZTOOL</span>
+                            {/* ĐÃ SỬA: Lấy tên APP từ env */}
+                            Tự Động Hóa Zalo Marketing Với <span className="text-blue-500">{process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}</span>
                         </h1>
                         <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8">
                             Tiếp cận hàng ngàn khách hàng tiềm năng, tăng trưởng doanh thu vượt bậc bằng cách tự động hóa các tác vụ trên Zalo và Google Maps.
@@ -119,7 +117,7 @@ export default function LandingPage() {
                                     width="100%" 
                                     height="100%" 
                                     src="https://www.youtube.com/embed/9FC4VkVcuSY" 
-                                    title="ZTOOL Demo Video" 
+                                    title={`${process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} Demo Video`}
                                     frameBorder="0" 
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                                     allowFullScreen
@@ -149,7 +147,8 @@ export default function LandingPage() {
                                     </li>
                                 </ul>
                                 <p className="mt-8 text-xl text-blue-400 font-bold">
-                                    👉 ZTOOL giải quyết triệt để những vấn đề này.
+                                    {/* ĐÃ SỬA: Lấy tên APP từ env */}
+                                    👉 {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} giải quyết triệt để những vấn đề này.
                                 </p>
                             </div>
                         </div>
@@ -195,7 +194,8 @@ export default function LandingPage() {
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-blue-600/5 blur-[120px] pointer-events-none"></div>
                     <div className="container mx-auto px-6 relative z-10">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
-                            Sẵn Sàng Tăng Trưởng Cùng ZTOOL?
+                            {/* ĐÃ SỬA: Lấy tên APP từ env */}
+                            Sẵn Sàng Tăng Trưởng Cùng {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}?
                         </h2>
                         <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
                             Đừng bỏ lỡ cơ hội tiếp cận khách hàng và tự động hóa công việc kinh doanh của bạn.
