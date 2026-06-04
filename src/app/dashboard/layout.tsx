@@ -181,7 +181,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 {/* Logo & Close Button */}
                 <div className="p-4 shrink-0 flex items-center justify-between">
                     <Link href="/dashboard" onClick={closeMobileMenu} className="block text-2xl font-bold text-white tracking-wider">
-                        ZTOOL
+                        {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}
                     </Link>
                     <button onClick={closeMobileMenu} className="md:hidden text-gray-400 hover:text-white p-1">
                         <FiX size={24} />
@@ -264,7 +264,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                         >
                             <FiMenu size={24} />
                         </button>
-                        <span className="font-bold text-lg text-white">ZTOOL</span>
+                        <span className="font-bold text-lg text-white">{process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'}</span>
                     </div>
 
                     {/* --- MỚI: HIỂN THỊ ĐIỂM SỐ TRÊN MOBILE (Vùng khoanh đỏ) --- */}
