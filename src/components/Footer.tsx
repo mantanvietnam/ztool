@@ -11,9 +11,11 @@ export default function Footer() {
                             {process.env.NEXT_PUBLIC_NAME_COMPANY || 'CÔNG TY TNHH GIẢI PHÁP SỐ TOP TOP'}
                         </h3>
                         <div className="space-y-3 text-sm leading-relaxed">
-                            <p><strong>Mã số thuế:</strong> 0110048533</p>
-                            <p><strong>Đại diện pháp luật:</strong> Nguyễn Thị Kim Oanh</p>
-                            <p><strong>Ngày cấp giấy phép:</strong> 01/07/2022</p>
+                            {/* --- ĐÃ CẬP NHẬT BIẾN .ENV TẠI ĐÂY --- */}
+                            <p><strong>Mã số thuế:</strong> {process.env.NEXT_PUBLIC_TAX || '0110048533'}</p>
+                            <p><strong>Đại diện pháp luật:</strong> {process.env.NEXT_PUBLIC_CEO || 'Nguyễn Thị Kim Oanh'}</p>
+                            <p><strong>Ngày cấp giấy phép:</strong> {process.env.NEXT_PUBLIC_DATE_START || '01/07/2022'}</p>
+                            
                             <div className="flex items-start gap-2">
                                 <FiMapPin className="mt-1 flex-shrink-0 text-blue-500" />
                                 <span><strong>Địa chỉ:</strong> {process.env.NEXT_PUBLIC_ADDRESS || '18 Thanh Bình, Mỗ Lao, Hà Đông, Hà Nội'}</span>

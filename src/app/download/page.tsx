@@ -7,21 +7,21 @@ import { FaApple, FaAndroid, FaWindows, FaLinux } from 'react-icons/fa';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
-// TẬP TRUNG CÁC LINK TẢI VỀ TẠI ĐÂY ĐỂ DỄ QUẢN LÝ VERSION
+// === CẬP NHẬT: TÍCH HỢP BIẾN MÔI TRƯỜNG ===
 const DOWNLOAD_LINKS = {
     android: "https://play.google.com/store/apps/details?id=vn.ai.ztool",
     ios: "https://apps.apple.com/us/app/ztool-ch%C4%83m-s%C3%B3c-kh%C3%A1ch-h%C3%A0ng/id6757388487",
     
     // Links cho Mac (Tách biệt Chip M và Intel)
-    macApple: "https://ztool.phoenixtech.vn/downloads/latest/ztool-arm64-mac.dmg", 
-    macIntel: "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-mac.dmg",
+    macApple: process.env.NEXT_PUBLIC_LINK_MAC_APPLE || "https://ztool.phoenixtech.vn/downloads/latest/ztool-arm64-mac.dmg", 
+    macIntel: process.env.NEXT_PUBLIC_LINK_MAC_INTEL || "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-mac.dmg",
     
     // Links cho Windows (Tách biệt 64-bit và 32-bit)
-    windows64: "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-setup.exe", 
-    windows32: "https://ztool.phoenixtech.vn/downloads/latest/ztool-ia32-setup.exe", 
+    windows64: process.env.NEXT_PUBLIC_LINK_WIN64 || "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-setup.exe", 
+    windows32: process.env.NEXT_PUBLIC_LINK_WIN32 || "https://ztool.phoenixtech.vn/downloads/latest/ztool-ia32-setup.exe", 
     
     // Link cho Linux
-    linux: "https://ztool.phoenixtech.vn/downloads/latest/ztool-x86_64.AppImage",
+    linux: process.env.NEXT_PUBLIC_LINK_LINUX || "https://ztool.phoenixtech.vn/downloads/latest/ztool-x86_64.AppImage",
 };
 
 type OS = 'android' | 'ios' | 'mac-intel' | 'mac-apple' | 'mac-unknown' | 'windows-32' | 'windows-64' | 'linux' | 'unknown';
@@ -247,7 +247,7 @@ export default function DownloadPage() {
                                 </span>
                             </a>
 
-                            {/* Mobile (iOS/Android) gộp chung hoặc bạn có thể tách thêm cột */}
+                            {/* Mobile (iOS/Android) */}
                             <div className="flex flex-col gap-2">
                                 <a href={DOWNLOAD_LINKS.ios} className="group flex-1 flex items-center justify-center gap-2 p-2 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-xl transition-all">
                                     <FiSmartphone className="text-gray-400 group-hover:text-blue-400" />
