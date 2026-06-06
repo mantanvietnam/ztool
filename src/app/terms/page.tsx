@@ -3,9 +3,11 @@ import { FiAlertTriangle, FiShield, FiUserX, FiCheckCircle, FiLock } from 'react
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+const appName = process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL';
+
 export const metadata = {
-    title: "Điều khoản sử dụng (EULA) - ZTOOL",
-    description: "Thỏa thuận cấp phép người dùng cuối và chính sách sử dụng dịch vụ ZTOOL.",
+    title: `Điều khoản sử dụng (EULA) - ${appName}`,
+    description: `Thỏa thuận cấp phép người dùng cuối và chính sách sử dụng dịch vụ ${appName}.`,
 };
 
 export default function TermsPage() {
@@ -34,13 +36,13 @@ export default function TermsPage() {
                                 <li className="flex items-start gap-3">
                                     <FiCheckCircle className="mt-1 text-red-400 shrink-0" />
                                     <span>
-                                        <strong>Người dùng tự chịu trách nhiệm dữ liệu:</strong> Bạn hoàn toàn chịu trách nhiệm về nội dung tin nhắn, hình ảnh và danh sách khách hàng mà bạn gửi đi thông qua ZTOOL. Chúng tôi không kiểm soát và không chịu trách nhiệm về tính hợp pháp của nội dung bạn tạo ra.
+                                        <strong>Người dùng tự chịu trách nhiệm dữ liệu:</strong> Bạn hoàn toàn chịu trách nhiệm về nội dung tin nhắn, hình ảnh và danh sách khách hàng mà bạn gửi đi thông qua {appName}. Chúng tôi không kiểm soát và không chịu trách nhiệm về tính hợp pháp của nội dung bạn tạo ra.
                                     </span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <FiCheckCircle className="mt-1 text-red-400 shrink-0" />
                                     <span>
-                                        <strong>Rủi ro khóa tài khoản Zalo:</strong> Việc gửi tin nhắn hàng loạt hoặc kết bạn tự động có thể vi phạm chính sách chống Spam của Zalo. ZTOOL chỉ là công cụ hỗ trợ thao tác, <strong>chúng tôi KHÔNG chịu trách nhiệm và KHÔNG hoàn tiền</strong> trong trường hợp tài khoản Zalo của bạn bị khóa, hạn chế hoặc xóa vĩnh viễn do sử dụng công cụ này.
+                                        <strong>Rủi ro khóa tài khoản Zalo:</strong> Việc gửi tin nhắn hàng loạt hoặc kết bạn tự động có thể vi phạm chính sách chống Spam của Zalo. {appName} chỉ là công cụ hỗ trợ thao tác, <strong>chúng tôi KHÔNG chịu trách nhiệm và KHÔNG hoàn tiền</strong> trong trường hợp tài khoản Zalo của bạn bị khóa, hạn chế hoặc xóa vĩnh viễn do sử dụng công cụ này.
                                     </span>
                                 </li>
                             </ul>
@@ -54,7 +56,7 @@ export default function TermsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-white mb-4">1. Thỏa thuận cấp phép người dùng cuối (EULA)</h2>
                             <p className="mb-4">
-                                Bằng cách tải xuống, cài đặt hoặc sử dụng ứng dụng ZTOOL, bạn đồng ý ràng buộc bởi các điều khoản này. Nếu bạn không đồng ý, vui lòng không sử dụng dịch vụ.
+                                Bằng cách tải xuống, cài đặt hoặc sử dụng ứng dụng {appName}, bạn đồng ý ràng buộc bởi các điều khoản này. Nếu bạn không đồng ý, vui lòng không sử dụng dịch vụ.
                             </p>
                         </section>
 
@@ -66,7 +68,7 @@ export default function TermsPage() {
                             <p className="mb-4 font-semibold text-white">
                                 Chúng tôi áp dụng chính sách "KHÔNG KHOAN NHƯỢNG" (Zero Tolerance) đối với các nội dung bị phản đối hoặc người dùng lạm dụng.
                             </p>
-                            <p className="mb-4">Bạn bị nghiêm cấm tạo, tải lên hoặc chia sẻ các nội dung sau trên ZTOOL:</p>
+                            <p className="mb-4">Bạn bị nghiêm cấm tạo, tải lên hoặc chia sẻ các nội dung sau trên {appName}:</p>
                             <ul className="list-disc pl-6 space-y-2 mb-4 text-gray-300">
                                 <li>Nội dung khiêu dâm, đồi trụy, khỏa thân.</li>
                                 <li>Nội dung đe dọa, bắt nạt, quấy rối hoặc kích động bạo lực.</li>
@@ -86,7 +88,7 @@ export default function TermsPage() {
                             <div className="space-y-6">
                                 <div>
                                     <h3 className="text-lg font-bold text-white mb-2">3.1. Lọc nội dung (Filtering)</h3>
-                                    <p>Hệ thống ZTOOL sử dụng các biện pháp kỹ thuật và danh sách từ khóa đen để tự động quét và ngăn chặn các nội dung không phù hợp trước khi chúng được hiển thị.</p>
+                                    <p>Hệ thống {appName} sử dụng các biện pháp kỹ thuật và danh sách từ khóa đen để tự động quét và ngăn chặn các nội dung không phù hợp trước khi chúng được hiển thị.</p>
                                 </div>
 
                                 <div>
@@ -96,10 +98,10 @@ export default function TermsPage() {
 
                                 <div>
                                     <h3 className="text-lg font-bold text-white mb-2">3.3. Chặn người dùng (Blocking)</h3>
-                                    <p>ZTOOL cung cấp tính năng <strong>"Chặn" (Block)</strong>. Khi bạn chặn một người dùng:</p>
+                                    <p>{appName} cung cấp tính năng <strong>"Chặn" (Block)</strong>. Khi bạn chặn một người dùng:</p>
                                     <ul className="list-disc pl-6 mt-2 text-gray-400">
                                         <li>Mọi nội dung từ người dùng đó sẽ bị ẩn khỏi nguồn cấp dữ liệu của bạn <strong>ngay lập tức</strong>.</li>
-                                        <li>Hệ thống sẽ tự động gửi thông báo về người dùng bị chặn tới đội ngũ quản trị viên của ZTOOL để xem xét.</li>
+                                        <li>Hệ thống sẽ tự động gửi thông báo về người dùng bị chặn tới đội ngũ quản trị viên của {appName} để xem xét.</li>
                                     </ul>
                                 </div>
                             </div>
@@ -111,7 +113,7 @@ export default function TermsPage() {
                                 <FiUserX /> 4. Cam kết xử lý vi phạm trong 24 giờ
                             </h2>
                             <p className="mb-3">
-                                Đội ngũ phát triển ZTOOL cam kết duy trì môi trường an toàn. Đối với các báo cáo về nội dung bị phản đối (objectionable content reports):
+                                Đội ngũ phát triển {appName} cam kết duy trì môi trường an toàn. Đối với các báo cáo về nội dung bị phản đối (objectionable content reports):
                             </p>
                             <ul className="space-y-2">
                                 <li className="flex items-center gap-2">
@@ -129,7 +131,7 @@ export default function TermsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-white mb-4">5. Quyền sở hữu trí tuệ</h2>
                             <p>
-                                ZTOOL và toàn bộ nội dung, tính năng và chức năng ban đầu của nó thuộc sở hữu độc quyền của Công ty TNHH Giải Pháp Số TOP TOP. Bạn không được sao chép, sửa đổi hoặc phân phối mã nguồn của chúng tôi mà không có sự cho phép.
+                                {appName} và toàn bộ nội dung, tính năng và chức năng ban đầu của nó thuộc sở hữu độc quyền của Công ty TNHH Giải Pháp Số TOP TOP. Bạn không được sao chép, sửa đổi hoặc phân phối mã nguồn của chúng tôi mà không có sự cho phép.
                             </p>
                         </section>
 
@@ -138,8 +140,8 @@ export default function TermsPage() {
                             <h2 className="text-2xl font-bold text-white mb-4">6. Liên hệ</h2>
                             <p>Nếu bạn có bất kỳ câu hỏi nào về Điều khoản này, vui lòng liên hệ:</p>
                             <ul className="mt-2 text-gray-400">
-                                <li>Email: ztool.ai.vn@gmail.com</li>
-                                <li>Hotline: 081.656.0000</li>
+                                <li>Email: {process.env.NEXT_PUBLIC_EMAIL}</li>
+                                <li>Hotline: {process.env.NEXT_PUBLIC_PHONE}</li>
                             </ul>
                         </section>
                     </div>
