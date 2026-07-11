@@ -4,13 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { FiCheck, FiZap, FiX, FiShare2 } from 'react-icons/fi';
 
 const REWARD_CONFIG = [
-  { day: 1, point: 50 },
-  { day: 2, point: 100 },
-  { day: 3, point: 150 },
-  { day: 4, point: 200 },
-  { day: 5, point: 250 },
-  { day: 6, point: 300 },
-  { day: 7, point: 500, big: true },
+  { day: 1, point: 20 },
+  { day: 2, point: 30 },
+  { day: 3, point: 40 },
+  { day: 4, point: 50 },
+  { day: 5, point: 60 },
+  { day: 6, point: 70 },
+  { day: 7, point: 100, big: true },
 ];
 
 export default function DailyCheckInModal() {
