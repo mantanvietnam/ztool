@@ -219,8 +219,11 @@ fetch("${apiUrl}", requestOptions)
                             <ParamRow name="message" type="String" required={true} 
                                 desc="Nội dung tin nhắn. Hỗ trợ spin {a|b} và biến %name%." 
                             />
-                            <ParamRow name="list_request" type="JSON String" required={true} 
-                                desc={<div><p>Chuỗi JSON chứa danh sách người nhận, chú ý sử dụng nháy kép.</p><p className="text-xs text-gray-500 mt-1">VD: <code>["098...", "091..."]</code></p></div>} 
+                            <ParamRow name="list_request" type="String" required={true} 
+                                desc={<div><p>Số điện thoại Zalo nhận tin, nếu gửi tin cho nhiều số thì trường này gửi lên 1 cục JSON chứa danh sách người nhận, chú ý sử dụng nháy kép.</p><p className="text-xs text-gray-500 mt-1">VD: <code>0816560000</code> hoặc <code>["098...", "091..."]</code></p></div>} 
+                            />
+                            <ParamRow name="timeSend" type="String" required={false} 
+                                desc="Thời gian gửi tin, cấu trúc dạng H:i d/m/Y, ví dụ 15:10 30/7/2026. Nếu gửi tin ngay thì bỏ qua trường này hoặc gửi lên 1 chuỗi rỗng." 
                             />
                             <ParamRow name="files[]" type="Binary" required={false} 
                                 desc="File ảnh đính kèm (Có thể gửi nhiều file cùng key 'files[]'). Tối đa 2MB/file." 
