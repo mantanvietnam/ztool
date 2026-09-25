@@ -92,8 +92,8 @@ export default function RegisterForm() {
                     localStorage.removeItem('userProxy');
                 }
 
-                // 3. Chuyển hướng
-                router.push('/dashboard');
+                // 3. Chuyển sang trang tải ứng dụng và hiển thị thông báo một lần
+                router.replace('/download?registered=success');
             } else {
                 setError(response.data.messages || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin.');
             }
