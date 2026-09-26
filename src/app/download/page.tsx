@@ -14,6 +14,7 @@ const DOWNLOAD_LINKS = {
     macApple: process.env.NEXT_PUBLIC_LINK_MAC_APPLE || "https://ztool.phoenixtech.vn/downloads/latest/ztool-arm64-mac.dmg",
     macIntel: process.env.NEXT_PUBLIC_LINK_MAC_INTEL || "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-mac.dmg",
 
+    windowsUniversal: process.env.NEXT_PUBLIC_LINK_WIN_UNIVERSAL || "https://ztool.phoenixtech.vn/downloads/latest/ztool-setup.exe",
     windows64: process.env.NEXT_PUBLIC_LINK_WIN64 || "https://ztool.phoenixtech.vn/downloads/latest/ztool-x64-setup.exe",
     windows32: process.env.NEXT_PUBLIC_LINK_WIN32 || "https://ztool.phoenixtech.vn/downloads/latest/ztool-ia32-setup.exe",
     windowsArm: process.env.NEXT_PUBLIC_LINK_WIN_ARM || "https://ztool.phoenixtech.vn/downloads/latest/ztool-arm64-setup.exe",
@@ -188,62 +189,89 @@ export default function DownloadPage() {
             case 'windows-arm':
             case 'windows-64':
             case 'windows-32': {
-                const windowsVersions = [
-                    { os: 'windows-64', label: '64-bit', href: DOWNLOAD_LINKS.windows64 },
-                    { os: 'windows-32', label: '32-bit', href: DOWNLOAD_LINKS.windows32 },
-                    { os: 'windows-arm', label: 'ARM64', href: DOWNLOAD_LINKS.windowsArm },
-                ];
-                const detectedVersion = windowsVersions.find((version) => version.os === os) || windowsVersions[0];
+                const detectedVersion = {
+                    'windows-64': {
+                        label: 'Windows x64 (Intel/AMD)',
+                        href: DOWNLOAD_LINKS.windows64,
+                        manualLabel: 'bản x64',
+                    },
+                    'windows-32': {
+                        label: 'Windows 32-bit',
+                        href: DOWNLOAD_LINKS.windows32,
+                        manualLabel: 'bản 32-bit',
+                    },
+                    'windows-arm': {
+                        label: 'Windows ARM64 (Snapdragon/ARM)',
+                        href: DOWNLOAD_LINKS.windowsArm,
+                        manualLabel: 'bản ARM64',
+                    },
+                }[os];
+                const isWindows32 = os === 'windows-32';
+                const primaryHref = isWindows32 ? DOWNLOAD_LINKS.windows32 : DOWNLOAD_LINKS.windowsUniversal;
 
                 return (
                     <div className="flex flex-col items-center gap-4">
-                        <a href={detectedVersion.href} className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/30">
-                            <FaWindows size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Windows
+                        <a href={primaryHref} className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/30">
+                            <FaWindows size={24} />
+                            {isWindows32
+                                ? `Tải ${process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Windows 32-bit`
+                                : 'Tải bộ cài Windows Universal'}
                         </a>
-                        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-gray-400 text-sm">
-                            <span>Đã nhận diện: Windows {detectedVersion.label}</span>
-                            {windowsVersions
-                                .filter((version) => version.os !== os)
-                                .map((version) => (
-                                    <span key={version.os} className="flex items-center gap-2">
-                                        <span>•</span>
-                                        <a href={version.href} className="text-blue-400 hover:underline">
-                                            Tải bản {version.label}
-                                        </a>
-                                    </span>
-                                ))}
+                        <div className="max-w-2xl text-center text-sm leading-6 text-gray-400">
+                            <p>
+                                Đã nhận diện: <span className="font-semibold text-gray-200">{detectedVersion.label}</span>.
+                                {' '}{isWindows32
+                                    ? 'Máy 32-bit cần sử dụng bộ cài riêng.'
+                                    : 'Bộ cài Universal sẽ tự chọn đúng kiến trúc x64 hoặc ARM64 khi cài đặt.'}
+                            </p>
+                            {!isWindows32 && (
+                                <a href={detectedVersion.href} className="text-blue-400 hover:underline">
+                                    Tải thủ công {detectedVersion.manualLabel}
+                                </a>
+                            )}
                         </div>
                     </div>
                 );
             }
-            
+
             case 'mac-apple':
-            case 'mac-intel':
                 return (
                     <div className="flex flex-col items-center gap-4">
-                        <a href={os === 'mac-apple' ? DOWNLOAD_LINKS.macApple : DOWNLOAD_LINKS.macIntel} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-white/10">
-                            <FaApple size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho macOS
+                        <a href={DOWNLOAD_LINKS.macApple} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-white/10">
+                            <FaApple size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Mac Apple Silicon
                         </a>
-                        <p className="text-gray-400 text-sm">
-                            Đã nhận diện: Mac {os === 'mac-apple' ? '(Apple Silicon)' : '(Intel)'}
+                        <p className="max-w-xl text-center text-sm leading-6 text-gray-400">
+                            Đã nhận diện: Mac dùng chip Apple M-Series/ARM64.
                             <span className="mx-2">•</span>
-                            <a href={os === 'mac-apple' ? DOWNLOAD_LINKS.macIntel : DOWNLOAD_LINKS.macApple} className="text-gray-300 hover:underline">
-                                Tải bản cho chip {os === 'mac-apple' ? 'Intel' : 'Apple M-Series'}
-                            </a>
+                            <a href={DOWNLOAD_LINKS.macIntel} className="text-gray-300 hover:underline">Tải bản Mac Intel</a>
                         </p>
                     </div>
                 );
-            
-            case 'mac-unknown':
-                // Dành riêng cho trình duyệt Safari trên Mac không nhận diện được chip
+
+            case 'mac-intel':
                 return (
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <a href={DOWNLOAD_LINKS.macApple} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-6 py-4 rounded-2xl font-bold transition-all transform hover:scale-105 shadow-lg">
-                            <FaApple size={24} /> Mac (Chip M1/M2/M3...)
+                    <div className="flex flex-col items-center gap-4">
+                        <a href={DOWNLOAD_LINKS.macIntel} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-white/10">
+                            <FaApple size={24} /> Tải {process.env.NEXT_PUBLIC_NAME_APP || 'ZTOOL'} cho Mac Intel
                         </a>
-                        <a href={DOWNLOAD_LINKS.macIntel} className="flex items-center gap-3 bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-6 py-4 rounded-2xl font-bold transition-all transform hover:scale-105 shadow-lg">
-                            <FaApple size={24} /> Mac (Chip Intel)
-                        </a>
+                        <p className="text-sm text-gray-400">Đã nhận diện: Mac dùng chip Intel.</p>
+                    </div>
+                );
+
+            case 'mac-unknown':
+                return (
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                            <a href={DOWNLOAD_LINKS.macApple} className="flex items-center gap-3 bg-gray-100 hover:bg-white text-black px-6 py-4 rounded-2xl font-bold transition-all transform hover:scale-105 shadow-lg">
+                                <FaApple size={24} /> Mac Apple Silicon
+                            </a>
+                            <a href={DOWNLOAD_LINKS.macIntel} className="flex items-center gap-3 bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-6 py-4 rounded-2xl font-bold transition-all transform hover:scale-105 shadow-lg">
+                                <FaApple size={24} /> Mac Intel
+                            </a>
+                        </div>
+                        <p className="max-w-xl text-center text-sm leading-6 text-amber-300">
+                            Trình duyệt không xác định được chip Mac. Vui lòng chọn đúng Apple Silicon hoặc Intel.
+                        </p>
                     </div>
                 );
 
@@ -328,7 +356,7 @@ export default function DownloadPage() {
                                             <FiDownloadCloud className="text-blue-300" size={20} />
                                             <span>1. Chọn bộ cài</span>
                                         </div>
-                                        <p className="text-sm leading-5 text-gray-400">Tải đúng phiên bản được gợi ý cho thiết bị của bạn.</p>
+                                        <p className="text-sm leading-5 text-gray-400">Ưu tiên bản được khuyến nghị hoặc đọc kỹ mô tả kiến trúc.</p>
                                     </div>
                                     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                                         <div className="mb-2 flex items-center gap-2 font-bold text-white">
@@ -372,22 +400,25 @@ export default function DownloadPage() {
                             <span className="w-12 h-[1px] bg-gray-800"></span>
                         </h3>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            
-                            {/* Windows 64 */}
-                            <a href={DOWNLOAD_LINKS.windows64} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
-                                <FaWindows size={40} className="text-gray-500 group-hover:text-blue-400 mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Win 64-bit</h4>
-                                <span className="mt-auto text-xs font-medium text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                            {/* Windows Universal */}
+                            <a href={DOWNLOAD_LINKS.windowsUniversal} className="group relative p-6 bg-blue-500/10 border border-blue-500/50 hover:border-blue-400 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
+                                <span className="absolute right-3 top-3 rounded-full bg-blue-500 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Khuyên dùng</span>
+                                <FaWindows size={40} className="text-blue-400 mb-4" />
+                                <h4 className="text-sm font-bold text-white mb-2">Windows Universal</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Tự chọn đúng kiến trúc x64 hoặc ARM64 khi cài.</p>
+                                <span className="mt-auto text-xs font-medium text-blue-300 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
 
-                            {/* Windows 32 */}
-                            <a href={DOWNLOAD_LINKS.windows32} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
+                            {/* Windows 64 */}
+                            <a href={DOWNLOAD_LINKS.windows64} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
                                 <FaWindows size={40} className="text-gray-500 group-hover:text-blue-400 mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Win 32-bit</h4>
-                                <span className="mt-auto text-xs font-medium text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <h4 className="text-sm font-bold text-white mb-2">Windows x64</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Dành cho phần lớn máy 64-bit dùng chip Intel hoặc AMD.</p>
+                                <span className="mt-auto text-xs font-medium text-blue-400 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
@@ -395,17 +426,19 @@ export default function DownloadPage() {
                             {/* Windows ARM */}
                             <a href={DOWNLOAD_LINKS.windowsArm} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
                                 <FaWindows size={40} className="text-gray-500 group-hover:text-blue-400 mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Win ARM64</h4>
-                                <span className="mt-auto text-xs font-medium text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <h4 className="text-sm font-bold text-white mb-2">Windows ARM64</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Chỉ dành cho máy dùng Snapdragon/ARM, không dùng cho Intel/AMD.</p>
+                                <span className="mt-auto text-xs font-medium text-blue-400 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
 
-                            {/* Mac Apple Silicon */}
-                            <a href={DOWNLOAD_LINKS.macApple} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-white/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
-                                <FaApple size={40} className="text-gray-500 group-hover:text-white mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Mac M-Series</h4>
-                                <span className="mt-auto text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            {/* Windows 32 */}
+                            <a href={DOWNLOAD_LINKS.windows32} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
+                                <FaWindows size={40} className="text-gray-500 group-hover:text-blue-400 mb-4 transition-colors" />
+                                <h4 className="text-sm font-bold text-white mb-2">Windows 32-bit</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Bộ cài riêng cho các máy Windows 32-bit.</p>
+                                <span className="mt-auto text-xs font-medium text-blue-400 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
@@ -413,8 +446,19 @@ export default function DownloadPage() {
                             {/* Mac Intel */}
                             <a href={DOWNLOAD_LINKS.macIntel} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-white/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
                                 <FaApple size={40} className="text-gray-500 group-hover:text-white mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Mac Intel</h4>
-                                <span className="mt-auto text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <h4 className="text-sm font-bold text-white mb-2">Mac Intel</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Bộ cài thủ công cho Mac Intel, không phải bản Apple Silicon native.</p>
+                                <span className="mt-auto text-xs font-medium text-white flex items-center gap-1">
+                                    Tải về <FiDownload />
+                                </span>
+                            </a>
+
+                            {/* Mac Apple Silicon */}
+                            <a href={DOWNLOAD_LINKS.macApple} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-white/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
+                                <FaApple size={40} className="text-gray-500 group-hover:text-white mb-4 transition-colors" />
+                                <h4 className="text-sm font-bold text-white mb-2">Mac Apple Silicon</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Bản ARM64 native dành cho Mac dùng chip Apple M-Series.</p>
+                                <span className="mt-auto text-xs font-medium text-white flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
@@ -422,8 +466,9 @@ export default function DownloadPage() {
                             {/* Linux 64 */}
                             <a href={DOWNLOAD_LINKS.linux64} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-yellow-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
                                 <FaLinux size={40} className="text-gray-500 group-hover:text-yellow-400 mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Linux 64-bit</h4>
-                                <span className="mt-auto text-xs font-medium text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <h4 className="text-sm font-bold text-white mb-2">Linux x64</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">AppImage dành cho máy Linux kiến trúc x64.</p>
+                                <span className="mt-auto text-xs font-medium text-yellow-400 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
@@ -431,14 +476,15 @@ export default function DownloadPage() {
                             {/* Linux ARM */}
                             <a href={DOWNLOAD_LINKS.linuxArm} className="group p-6 bg-gray-800/40 border border-gray-700 hover:border-yellow-500/50 rounded-2xl transition-all duration-300 flex flex-col items-center text-center">
                                 <FaLinux size={40} className="text-gray-500 group-hover:text-yellow-400 mb-4 transition-colors" />
-                                <h4 className="text-sm font-bold text-white mb-1">Linux ARM64</h4>
-                                <span className="mt-auto text-xs font-medium text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <h4 className="text-sm font-bold text-white mb-2">Linux ARM64</h4>
+                                <p className="mb-4 text-xs leading-5 text-gray-400">Cho Raspberry Pi 4+ và máy chủ Linux dùng ARM64.</p>
+                                <span className="mt-auto text-xs font-medium text-yellow-400 flex items-center gap-1">
                                     Tải về <FiDownload />
                                 </span>
                             </a>
 
                             {/* Mobile (iOS/Android) */}
-                            <div className="flex flex-col gap-2">
+                            <div className="flex min-h-48 flex-col gap-2">
                                 <a href={DOWNLOAD_LINKS.ios} className="group flex-1 flex items-center justify-center gap-2 p-2 bg-gray-800/40 border border-gray-700 hover:border-blue-500/50 rounded-xl transition-all">
                                     <FiSmartphone className="text-gray-400 group-hover:text-blue-400" />
                                     <span className="text-xs font-bold text-gray-300 group-hover:text-white">iOS App</span>
